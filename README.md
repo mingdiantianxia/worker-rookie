@@ -1,2 +1,117 @@
-# worker-rookie
-worker-rookie：基于swoole的轻量级异步任务框架，10分钟即可搭建你的异步任务服务
+**worker-rookie：基于swoole的轻量级异步任务框架，10分钟即可搭建你的异步任务服务**
+
+**author：fukayao**
+
+**date：2020-4-14**
+
+**email：1982104592@qq.com**
+
+**功能：**
+
+多应用配置管理<br>
+命名空间自动加载<br>
+redis缓存<br>
+自定义路由<br>
+日志分割<br>
+业务模块数据隔离<br>
+秒级定时任务（支持协程与进程两种模式）<br>
+消息队列服务（支持多进程消费消息）<br>
+
+目录结构：
+```code
+├─apps                   应用层目录
+│  ├─api                 api应用目录  
+│  ├─console             命令（定时任务）应用目录
+│  
+├─config                 配置目录
+├─router                 api路由配置目录
+├─runtime                运行和日志目录
+├─scripts                服务脚本目录
+├─system                 系统层目录
+│  ├─commons             系统公共目录  
+│  ├─datalevels          数据目录
+│  ├─services            业务逻辑目录
+│  
+├─workerbase             框架基础类库目录
+```
+
+项目部署：<br>
+
+1、修改config.php配置文件中的php命令路径
+```code
+    //php命令路径
+    "phpbin" => "/usr/local/php/bin/php",
+```
+2、修改config.php中的mysql数据库和redis连接，或者用env.php覆盖默认配置
+```code
+    'db'=> [
+        'database_type' => 'mysql',
+        'database_name' => 'test',
+        'server' => '192.168.1.219',
+        'username' => 'root',
+        'password' => '',
+        'charset' => 'utf8',
+        // 可选参数
+        'port' => 3306,
+        // 可选，定义表的前缀
+        'prefix' => '',
+    ],
+
+    'redis' => [
+            //redis服务器地址
+            'host'  => '192.168.1.219',
+            //redis端口
+            'port'  => '6379',
+            //redis密码
+            'password' => '',
+            //连接超时
+            'timeout' => 10,
+            //持久链接
+            'persistent' => true,
+    ],
+```
+
+3、运行服务
+```code
+    cd scripts/
+    
+    //运行定时任务
+    sh crond.sh start
+    //停止定时任务
+    sh crond.sh stop
+    //重启定时任务
+    sh crond.sh restart
+    
+    //运行队列服务
+    sh workerServer.sh start
+    //停止队列服务
+    sh workerServer.sh stop
+    //重启队列服务
+    sh workerServer.sh restart
+    
+    //同时运行定时任务与worker队列服务
+    sh server.sh start
+    //同时停止定时任务与worker队列服务
+    sh server.sh stop
+    //同时重启定时任务与worker队列服务
+    sh server.sh restart
+    
+    
+```
+
+4、无人值守
+```code
+  //linux中/etc/crontab添加定时任务，
+  #每分钟尝试启动一次swoole定时任务和worker队列服务
+  */1 * * * * root sh 项目根目录绝对路径/scripts/server.sh start
+  
+  //或者直接运行脚本安装以上内容
+  ./installCrontab
+```
+
+5、nginx路由重写
+```code
+   location / {
+           try_files $uri $uri/ /index.php$is_args$args;
+       }
+```
