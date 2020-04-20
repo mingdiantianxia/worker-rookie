@@ -45,11 +45,23 @@ class Log
      * @param [type] $path       [路径]
      */
 	function __construct($name = ''){
-        $filename = date('Ym') . '/' . date('d') . '.log';
-	    $log = Config::getInstance()->get('log');
+        $config = Config::read('log');
+        $config['name'] = $name;
+        $this->init($config);
+	}
 
+    /**
+     * 日志初始化
+     * @access public
+     * @param  array $config 配置参数
+     * @return void
+     */
+    public function init($config = [])
+    {
+        $name = isset($config['name']) ? $config['name'] : '';
+        $filename = date('Ym') . '/' . date('d') . '.log';
         $fname = '';
-	    if (!empty($name)) {
+        if (!empty($name)) {
             $fname = '_' . $name;
         }
 
@@ -60,31 +72,30 @@ class Log
             $fname = '_worker' . $fname;
         }
 
-        $filename = $log['path'] . date('Ym') . '/' . date('d') . $fname . '.log';
+        $filename = $config['path'] . date('Ym') . '/' . date('d') . $fname . '.log';
 
         try{
             $path = dirname($filename);
             !is_dir($path) && mkdir($path, 0755, true);
-        } catch (\Exception $e) {
-
+        }
+        catch (\Exception $e) {
         }
 
         $stream_handler = new StreamHandler($filename, Logger::DEBUG);
-		// $stream_handler->setFormatter(new JsonFormatter());//格式化成json
-		array_unshift($this->_handlers, $stream_handler);//加入handler 日志管理器数组，配置管理器
-		
-		array_unshift($this->_processors, new WebProcessor);//请求来源的信息
+        // $stream_handler->setFormatter(new JsonFormatter());//格式化成json
+        array_unshift($this->_handlers, $stream_handler);//加入handler 日志管理器数组，配置管理器
+
+        array_unshift($this->_processors, new WebProcessor);//请求来源的信息
 //		array_unshift($this->_processors, new IntrospectionProcessor);//当前打印日志的文件信息
-		//在日的后面加上了uid和process_id
+        //在日的后面加上了uid和process_id
 //		 array_unshift($this->_processors, new ProcessIdProcessor);
 //		array_unshift($this->_processors, new UidProcessor(16));//加入processors 日志管理器数组，配置管理器
 //        array_unshift($this->_processors, new PsrLogMessageProcessor);//PSR-3规则处理信息
 
-		if (null === $this->_logger) {
+        if (null === $this->_logger) {
             $this->_logger = new Logger(trim($name,'_'), $this->_handlers, $this->_processors);
         }
-		 
-	}
+    }
 
     /**
      * 获取log实例
@@ -190,10 +201,6 @@ class Log
      */
     public static function __callStatic($method, $args)
     {
-        if (!isset(self::$_instance[$method])) {
-            self::$_instance[$method] = new Log($method);
-        }
-
         if (count($args) > 2) {
             return false;
         }
@@ -234,7 +241,7 @@ class Log
 
         $args[0] = $msg;
 
-        call_user_func_array([self::$_instance[$method]->_logger, $method], $args);
+        call_user_func_array([self::getInstance($method)->_logger, $method], $args);
     }
 
 

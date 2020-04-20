@@ -33,7 +33,7 @@ return [
         'defaultJob' => [
             'option' => [],
             "preConsume" => false,
-            "threadNum" => 3,
+            "threadNum" => 20,
             "lifeTime" => 3600,
             "maxHandleNum" => 10000,
         ],

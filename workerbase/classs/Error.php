@@ -131,10 +131,11 @@ class Error
 
         Log::error($log);
 
-        if (in_array($env, ['dev', 'test'])) {
+        if (in_array($env, ['dev', 'test', 'local_debug'])) {
 //            throw new \RuntimeException($log);
             //打印错误信息
             echo "\n";
+            var_dump($log);
             var_export($log);
             echo "\n";
         }

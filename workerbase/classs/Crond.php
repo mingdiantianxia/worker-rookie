@@ -83,6 +83,7 @@ class Crond
 
     public function start()
     {
+        ini_set('memory_limit', -1);
         //根据 -d 参数确认是否后台运行
         $options = getopt('d');
         $this->_log("start cron server...");
@@ -203,6 +204,7 @@ class Crond
 //                                        $this->_log($res['output']);
 //                                    }
 
+                                    set_time_limit(0);
                                     $res = $this->doLocalCronTask($cmdArgs[0], $cmdArgs[1]);
                                     $res = true;
                                 }
@@ -290,7 +292,7 @@ class Crond
                             else {//本地任务
                                 try {
 //                                    $worker->exec($this->_conf['cmd'],  $cmdArgs);
-
+                                    set_time_limit(0);
                                     $res = $this->doLocalCronTask($cmdArgs[0], $cmdArgs[1]);
                                     $res = true;
                                 }catch (\Exception $e) {

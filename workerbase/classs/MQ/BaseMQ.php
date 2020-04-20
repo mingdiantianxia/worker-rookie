@@ -1,6 +1,8 @@
 <?php
 namespace workerbase\classs\MQ;
 
+use workerbase\classs\Log;
+
 /**
  * 消息队列服务基础类
  * @author fukaiyao 2020-1-3 11:21:59

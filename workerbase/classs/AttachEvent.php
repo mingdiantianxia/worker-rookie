@@ -12,18 +12,18 @@ class AttachEvent {
     private static $_event = [];
 
     public static function attachEventHandler($eventName, callable $handler){
-        self::$_event[$eventName] = $handler;
+        self::$_event[$eventName][md5(var_export($handler, true))] = $handler;
     }
 
     //程序执行前事件
     public static function onBeginRequest(){
        if (isset(self::$_event['onBeginRequest'])) {
-           $callable = self::$_event['onBeginRequest'];
-
-           if (is_object($callable)) {
-               call_user_func($callable);
-           } elseif (is_array($callable)) {
-               call_user_func([$callable[0], $callable[1]]);
+           foreach (self::$_event['onBeginRequest'] as $callable) {
+               if (is_object($callable)) {
+                   call_user_func($callable);
+               } elseif (is_array($callable)) {
+                   call_user_func([$callable[0], $callable[1]]);
+               }
            }
        }
 
@@ -33,12 +33,12 @@ class AttachEvent {
     //程序退出前事件
     public static function onEndRequest(){
        if (isset(self::$_event['onEndRequest'])) {
-           $callable = self::$_event['onEndRequest'];
-
-           if (is_object($callable)) {
-               call_user_func($callable);
-           } elseif (is_array($callable)) {
-               call_user_func([$callable[0], $callable[1]]);
+           foreach (self::$_event['onEndRequest'] as $callable) {
+               if (is_object($callable)) {
+                   call_user_func($callable);
+               } elseif (is_array($callable)) {
+                   call_user_func([$callable[0], $callable[1]]);
+               }
            }
        }
        return true;

@@ -74,7 +74,8 @@ start() {
         #杀死所有残留的子进程
         ps -eaf |grep "workerServer.php" | grep -v "grep"| awk '{print $2}'|xargs kill &> /dev/null
         echo "start workerServer server..."
-        cmd=$phpbin" workerServer.php -d"
+        threadNum=`availableThreadNum`
+        cmd=$phpbin" workerServer.php -d -m "$threadNum
         if [[ ! -f $cronolog ]]; then
             $cmd &> $logPath$logFileName
         else
@@ -116,6 +117,20 @@ check_worker_exist() {
     return  $pidIsExits
 }
 
+#检测系统剩余内存资源
+availableThreadNum() {
+	availableMemory=`free -m |grep Mem | grep -v "grep" | awk '{print $4}'`
+	t=`expr $availableMemory - 300`
+
+	if [ $t -gt 0 ];then
+	   t=`awk "BEGIN{print $t*0.7/64}"`
+	   t="${t%%.*}"
+	else
+	   t=0
+	fi
+
+	echo "${availableMemory}_${t}"
+}
 
 case "$1" in
 start)

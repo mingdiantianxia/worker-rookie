@@ -91,6 +91,7 @@ class Worker
     {
         set_time_limit(0);
         ini_set('default_socket_timeout', -1);
+        ini_set('memory_limit', -1);
 
         //设置用户组
         $userName = $this->_conf['user'];

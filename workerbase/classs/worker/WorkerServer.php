@@ -43,16 +43,19 @@ class WorkerServer
     private $_monitorTimerId;
 
     /**
-     * 用于控制dev,test环境，每个队列只启动1个进程
-     * @var array
-     */
-    private $_queueWorkers = [];
-
-    /**
      * 子进程都退出后，主进程是否退出
      * @var bool
      */
-    private $_MasterProcessExit = false;
+    private $_masterProcessExit = false;
+
+    /**
+     * 系统可用资源
+     * @var null
+     */
+    private $_systemResource = null;
+
+    //配置的总进程数
+    private $_workerConfigThreadNum = 0;
 
     private function __construct()
     {
@@ -77,6 +80,16 @@ class WorkerServer
             file_put_contents($this->_conf['pid'], posix_getpid());
         }
 
+        //获取系统当前剩余资源
+        $options = getopt('m:');
+        if (isset($options['m']) && !empty($options['m'])) {
+            list($memory,$ableThreadNum) = explode('_', $options['m']);
+            $this->_systemResource = [
+                'memory' => $memory,
+                'resourceThreadNum' => $ableThreadNum
+            ];
+        }
+
         //初始化worker队列
         $this->_initWorkerMessageQueue();
     }
@@ -98,8 +111,28 @@ class WorkerServer
      */
     public function run()
     {
+        ini_set('memory_limit', -1);
         //清除队列实例，让子进程创建自己的队列实例
         MessageServer::clearInstance();
+
+        if (isset($this->_conf['workerConf'])) {
+            $queueNum = count($this->_conf['workerConf']);
+
+            //计算最少需要的内存资源
+            $needMemory = $queueNum*64;
+            if (!is_null($this->_systemResource) && ($needMemory > $this->_systemResource['memory'])) {
+                $this->_log('error: The system has no memory resources available, need memory:' .
+                    $needMemory . 'M' . ',remaining memory:' . $this->_systemResource['memory'] . 'M');
+                $this->_killMaster();
+            }
+
+            //配置的总进程数
+            if ($queueNum > 0) {
+                foreach ($this->_conf['workerConf'] as $conf) {
+                    $this->_workerConfigThreadNum += $conf['threadNum'];
+                }
+            }
+        }
 
         $this->startWorker();
 
@@ -119,7 +152,7 @@ class WorkerServer
     {
         $workersConf = $this->_conf['workerConf'];
         if (empty($workersConf)) {
-            return;
+            $this->_killMaster();
         }
 
         foreach ($workersConf as $jobName => $conf) {
@@ -128,18 +161,13 @@ class WorkerServer
                 continue;
             }
 
+            if (isset($this->_systemResource['resourceThreadNum'])) {
+                $threadNum = max(1, floor(($conf['threadNum']/$this->_workerConfigThreadNum)*$this->_systemResource['resourceThreadNum']));
+                $conf['threadNum'] = min($threadNum, $conf['threadNum']);
+            }
+
             //控制测试环境的进程数
-            if (in_array(loadc('config')->get("env"), ['dev'])) {
-                $jWorkers = 0;
-                if (isset($this->_queueWorkers[$jobName])) {
-                    $jWorkers = $this->_queueWorkers[$jobName];
-                }
-                else {
-                    $this->_queueWorkers[$jobName] = 1;
-                }
-                if ($jWorkers > 0) {
-                    continue;
-                }
+            if (in_array(WK_ENV, ['dev', 'test'])) {
                 //默认启动一个进程用于测试
                 $conf['threadNum'] = 1;
             }
@@ -155,7 +183,9 @@ class WorkerServer
             //启动worker
             for ($i=0; $i < $hasWorkers; $i++) {
                 $workerProcess = new Process(function (Process $worker) use ($jobName) {
-                    $this->_log("start worker, jobName={$jobName}, pid={$worker->pid}");
+                    if (in_array(WK_ENV, ['dev', 'local_debug'])) {
+                        $this->_log("start worker, jobName={$jobName}, pid={$worker->pid}");
+                    }
                     //直接执行，处理队列
                     Worker::getInstance($jobName)->run();
                 }, false, 0);
@@ -187,7 +217,7 @@ class WorkerServer
                     }
                 }
 
-                if ($this->_MasterProcessExit && $this->_getTotalWorkers() == 0) {
+                if ($this->_masterProcessExit && $this->_getTotalWorkers() == 0) {
                     $this->_log("worker server shutdown...");
                     //当子进程都退出后，结束masker进程
                     @unlink($this->_conf['pid']);
@@ -202,7 +232,7 @@ class WorkerServer
                     Timer::clear($this->_monitorTimerId);
                 }
                 //主进程退出信号标记（子进程都退出，则主进程退出）
-                $this->_MasterProcessExit = true;
+                $this->_masterProcessExit = true;
                 if (!empty($this->_pidMapToWorkerType)) {
                     foreach (array_keys($this->_pidMapToWorkerType) as $pid) {
                         Process::kill($pid, SIGTERM);
@@ -307,6 +337,23 @@ class WorkerServer
             $total += count($this->_runningWorkers[$workerType]);
         }
         return $total;
+    }
+
+    private function _killMaster()
+    {
+        //主进程退出信号标记（子进程都退出，则主进程退出）
+        $this->_masterProcessExit = true;
+        if (!empty($this->_pidMapToWorkerType)) {
+            foreach (array_keys($this->_pidMapToWorkerType) as $pid) {
+                Process::kill($pid, SIGTERM);
+            }
+        } elseif ($this->_getTotalWorkers() == 0) {
+            $this->_log("worker server shutdown...");
+            //当子进程都退出后，结束masker进程
+            @unlink($this->_conf['pid']);
+            Process::kill(posix_getpid(), SIGTERM);
+            exit(0);
+        }
     }
 
     /**

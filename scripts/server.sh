@@ -41,20 +41,44 @@ stop() {
      fi
 
 	isFalse=1
+	cronIsFalse=1
+	workerIsFalse=1
     try=0
     while test $try -lt 60; do
         if [ ! -f "$cronPidPath" ] && [ ! -f "$workerPidPath" ]; then
-            try=''
+			try=''
 			isFalse=0
             break
+		else
+			if [ ! -f "$cronPidPath" ]; then
+				cronIsFalse=0
+			else
+			    kill $cronPid
+            fi
+
+			if [ ! -f "$workerPidPath" ]; then
+				workerIsFalse=0
+			else
+			    kill $workerPid
+            fi
+
         fi
         echo -n
         try=`expr $try + 1`
         sleep 1
     done
-	
+
 	if [ $isFalse -eq 1 ];then
-	    echo "stop timeout failed."
+		if [ $cronIsFalse -eq 1 ];then
+			echo "stop cron timeout failed."
+		else
+			echo "stop crond ok."
+		fi
+		if [ $workerIsFalse -eq 1 ];then
+	        echo "stop worker timeout failed."
+		else
+			echo "stop workerServer ok."
+		fi
 	else
 	    echo "stop cron && workerServer ok."
 	fi
