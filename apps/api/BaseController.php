@@ -1,13 +1,14 @@
 <?php
 namespace apps\api;
-use workerbase\traits\BaseTool;
+use workerbase\traits\Request;
+use workerbase\traits\Response;
 
 /**
 * BaseController
 */
 class BaseController
 {
-    use BaseTool;
+    use Request, Response;
 
     public function __construct()
     {

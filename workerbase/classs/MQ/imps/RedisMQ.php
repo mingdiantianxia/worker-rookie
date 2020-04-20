@@ -7,7 +7,6 @@ use workerbase\classs\Log;
 use workerbase\classs\MQ\BaseMQ;
 use workerbase\classs\MQ\IMQ;
 use workerbase\classs\worker\WorkerMessage;
-use workerbase\traits\BaseTool;
 
 /**
  * 基于redis的消息队列
@@ -15,7 +14,6 @@ use workerbase\traits\BaseTool;
  */
 class RedisMQ extends BaseMQ implements IMQ
 {
-    use BaseTool;
     /**
      * @var RedisMQ
      */

@@ -219,9 +219,8 @@ class Macaw {
 
   public static function runFilters($callbacks, $matched = [])
   {
-      $refClass = new \ReflectionClass($callbacks);//反射类
       //过滤器数组
-      if ($refClass->hasMethod('filters')) {
+      if (method_exists($callbacks, 'filters')) {
           $filters = call_user_func_array([$callbacks, 'filters'], []);
           if ($filters && is_array($filters)) {
               foreach ($filters as $filter) {
@@ -251,7 +250,6 @@ class Macaw {
               }
           }
       }
-      unset($refClass);
       return true;
   }
 }

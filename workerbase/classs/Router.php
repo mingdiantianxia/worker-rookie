@@ -10,13 +10,10 @@ require_once(__DIR__.'/../inc/marcfowler/macaw/Macaw.php');
  * @method static Router delete(string $route, Callable $callback)
  * @method static Router options(string $route, Callable $callback)
  * @method static Router head(string $route, Callable $callback)
- * @method static Router ANY(string $route, Callable $callback)
+ * @method static Router any(string $route, Callable $callback)
  * @method static Router getPathInfo()
  * @package workerbase\classs
  */
 class Router extends \marcfowler\macaw\Macaw{
-    public function __construct(){
-        parent::haltOnMatch(true);
-    }
 
 }
