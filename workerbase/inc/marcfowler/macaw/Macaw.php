@@ -19,7 +19,7 @@ class Macaw {
   public static $prefix = '';
   public static $patterns = array(
       ':any' => '(/\S*)*',
-      ':num' => '[0-9]+',
+      ':num' => '([0-9]+)?',
       ':all' => '.*'
   );
   public static $error_callback;
@@ -150,14 +150,18 @@ class Macaw {
             // Remove $matched[0] as [1] is the first parameter.
             array_shift($matched);
 
-            //带:any路由名才能传参，整理参数
-            if (count($matched) == 1) {
-                if ($matched[0] != '/') {
-                    $matched = explode('/',$matched[0]);
-                    array_shift($matched);//弹出第一个空参数
-                } else {
-                    unset($matched[0]);
+            //带:any和:num的路由名才能传参，整理参数
+            if (count($matched) > 0) {
+                $tempParams = [];
+                foreach ($matched as $item) {
+                    $item = trim($item, '/');
+                    $item = explode('/', $item);
+                    if (empty($item[0])) {
+                        array_shift($item);//弹出第一个空参数
+                    }
+                    $tempParams = array_merge($tempParams, $item);
                 }
+                $matched = $tempParams;
             }
 
             if (!is_object(self::$callbacks[$pos])) {
