@@ -40,6 +40,15 @@ class AutoPathController extends BaseController
         $controllerPath = "apps\\" . WK_APP_ID;
         $controllerPath .= !empty($newRoute) ? "\\" . $newRoute : "";
         if (!empty($urlSlice1)) {
+            if (stripos($urlSlice2, '_') !== false) { //下划线转驼峰
+                $urlSlice2 = explode('_', $urlSlice2);
+                foreach ($urlSlice2 as &$slice) {
+                    $slice = ucfirst($slice);
+                }
+
+                $urlSlice2 = implode('', $urlSlice2);
+            }
+
             $controllerPath .= "\\" . $urlSlice2 . 'Controller';
 
             $class = strtr($controllerPath, DIRECTORY_SEPARATOR, '\\');
