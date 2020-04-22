@@ -123,13 +123,13 @@ class Worker
         $currentExcutedTasks = 0;
         $this->_flgWorkerExit = false;
         while (!$this->_flgWorkerExit) {
+            Log::setRequireId();
             $s = microtime(true);
             $currentTime = time();
 
             if (($currentTime - $startTime) > $config['lifeTime']) {
                 //超出存活时间，自动退出
                 $this->_flgWorkerExit = true;
-                $this->_log("worker (jobName={$this->_jobName}) run time exceed lifetime,pid:".$pid." exit worker.");
                 Log::info("worker (jobName={$this->_jobName}) run time exceed lifetime,pid:".$pid." exit worker.");
                 break;
             }
@@ -137,7 +137,6 @@ class Worker
             //超出最大任务处理次数, 自动退出
             if ($currentExcutedTasks >= $config['maxHandleNum']) {
                 $this->_flgWorkerExit = true;
-                $this->_log("worker (jobName={$this->_jobName}) done tasks exceed maxHandleNum,pid:".$pid." exit worker.");
                 Log::info("worker (jobName={$this->_jobName}) done tasks exceed maxHandleNum,pid:".$pid." exit worker.");
                 break;
             }

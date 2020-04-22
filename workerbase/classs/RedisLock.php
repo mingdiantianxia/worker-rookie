@@ -53,7 +53,8 @@ class RedisLock
         do {
             $startTime = microtime(true) * 1000;
 
-            $result = $this->_redis->setNx($this->_getKeyName($key), $token, $ttl);//通过setNx获取锁,只有一个能拿到
+            //通过setNx获取锁,只有一个能拿到
+            $result = $this->_redis->getOriginInstance()->set($this->_getKeyName($key), $token, ['NX', 'PX' => $ttl * 1000]);
             if (!$result) { //没拿到锁
                 if (!$isChoke) {
                     return false;
@@ -99,13 +100,14 @@ class RedisLock
     {
         $key = $lock['key'];
         $token = $lock['token']; //用请求的唯一token来解锁，避免锁过期，导致的交叉请求相互解锁的问题
-
-        $token1 = $this->_redis->get($this->_getKeyName($key));
-        if ($token1 == $token) {
-            return $this->_redis->delete($this->_getKeyName($key));
-        } else {
-            return false;
-        }
+        $script = '
+            if redis.call("GET", KEYS[1]) == ARGV[1] then
+                return redis.call("DEL", KEYS[1])
+            else
+                return 0
+            end
+        ';
+        return $this->_redis->getOriginInstance()->eval($script, [$this->_getKeyName($key), $token], 1);
 
     }
 
