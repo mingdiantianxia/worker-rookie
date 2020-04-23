@@ -17,6 +17,10 @@
 * Swoole扩展版本不小于1.9.18（定时任务-进程模式；推荐使用进程模式）
 * Swoole扩展版本不小于4.2.9（定时任务-协程模式；需要PHP7以上版本）
 
+## 致谢
+
+* Medoo  轻量级的PHP数据库框架！文档地址https://medoo.lvtao.net/1.2/doc.php
+* Swoole文档地址 https://wiki.swoole.com/wiki/index
 
 ## 功能
 
