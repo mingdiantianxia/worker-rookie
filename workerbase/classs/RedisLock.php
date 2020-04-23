@@ -54,7 +54,7 @@ class RedisLock
             $startTime = microtime(true) * 1000;
 
             //通过setNx获取锁,只有一个能拿到
-            $result = $this->_redis->getOriginInstance()->set($this->_getKeyName($key), $token, ['NX', 'PX' => $ttl * 1000]);
+            $result = $this->_redis->set($this->_getKeyName($key), $token, ['NX', 'PX' => $ttl * 1000]);
             if (!$result) { //没拿到锁
                 if (!$isChoke) {
                     return false;

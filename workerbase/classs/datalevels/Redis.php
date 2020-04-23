@@ -216,9 +216,13 @@ class Redis
      * @param int $expire         -   过期时间，单位秒
      * @return bool 成功返回true
      */
-    public function set($key, $value, $expire = 0)
+    public function set($key, $value, $expire = null)
     {
-        if ($expire > 0) {
+        if (is_null($expire)) {
+            $expire = 0;
+        }
+
+        if ($expire > 0 || is_array($expire)) {
             return $this->_redis->set($key, $value, $expire);
         }
         return $this->_redis->set($key, $value);
