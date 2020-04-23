@@ -12,10 +12,10 @@ class RedisLock
     private static $_instance = null;
 
     //每次取锁最大延迟毫秒数，最小延迟为此值的一半
-    private $retryDelay = 48;
+    private $_retryDelay = 48;
 
     //有效时间偏差因子(返回的锁有效期默认不能低于设置时间的百分之一)
-    private $clockDriftFactor = 0.01;
+    private $_clockDriftFactor = 0.01;
 
     private $_redis = null;
 
@@ -68,7 +68,7 @@ class RedisLock
 
             # 对生存时间的偏差中增加2毫秒来计算Redis的到期时间
             #防止有效期过低的返回
-            $drift = ($ttl * 1000 * $this->clockDriftFactor) + 2;
+            $drift = ($ttl * 1000 * $this->_clockDriftFactor) + 2;
 
             $validityTime = ($ttl * 1000) - (microtime(true) * 1000 - $startTime) - $drift;
 
@@ -90,7 +90,7 @@ class RedisLock
             }
 
             // 在重试之前等待一个随机延迟，为的是分散取锁的时间，避免集中抢锁
-            $delay = mt_rand(floor($this->retryDelay / 2), $this->retryDelay);
+            $delay = mt_rand(floor($this->_retryDelay / 2), $this->_retryDelay);
             usleep($delay * 1000);//毫秒
             $hasWait += $delay;
         } while (true);
