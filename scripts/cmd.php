@@ -33,13 +33,13 @@ define('WK_ENV',  Config::read('env'));
 Error::register();
 App::run();
 
-$cmd_config = Config::read("cmd_path", "cron");
+$cmdConfig = Config::read("cmd_path", "cron");
 
 try{
-    $result = loadf('cliRun', WORKER_PROJECT_PATH . $cmd_config['path'], $cmd_config['namespace'], $cmd_config['suffix']);
+    $result = loadf('cliRun', WORKER_PROJECT_PATH . $cmdConfig['path'], $cmdConfig['namespace'], $cmdConfig['suffix']);
     if (isset($result['code']) && $result['code'] == -1) {
         //搜集没有返回true的任务日志
-       Log::info('cmd_error:' . $result['msg'], $argv);
+       Log::err('cmd_error:' . $result['msg'], $argv);
     }
 } catch (\Exception $e) {
     Log::err('cmd_error:' . $e->getMessage() . "[" . $e->getFile() . ':' . $e->getLine() . "]", $argv);

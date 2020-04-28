@@ -205,7 +205,18 @@ class Crond
 //                                    }
 
                                     set_time_limit(0);
-                                    $res = $this->doLocalCronTask($cmdArgs[0], $cmdArgs[1]);
+                                    $cmdConfig = Config::read("cmd_path", "cron");
+                                    $res = loadf(
+                                        'cliRun',
+                                        WORKER_PROJECT_PATH . $cmdConfig['path'],
+                                        $cmdConfig['namespace'],
+                                        $cmdConfig['suffix'],
+                                        $cmdArgs[0],
+                                        $cmdArgs[1]
+                                    );
+                                    if (isset($res['code']) && $res['code'] == -1) {
+                                        $this->_log('cron error=' . $res['msg']);
+                                    }
                                     $res = true;
                                 }
                             }
@@ -293,7 +304,18 @@ class Crond
                                 try {
 //                                    $worker->exec($this->_conf['cmd'],  $cmdArgs);
                                     set_time_limit(0);
-                                    $res = $this->doLocalCronTask($cmdArgs[0], $cmdArgs[1]);
+                                    $cmdConfig = Config::read("cmd_path", "cron");
+                                    $res = loadf(
+                                        'cliRun',
+                                        WORKER_PROJECT_PATH . $cmdConfig['path'],
+                                        $cmdConfig['namespace'],
+                                        $cmdConfig['suffix'],
+                                        $cmdArgs[0],
+                                        $cmdArgs[1]
+                                    );
+                                    if (isset($res['code']) && $res['code'] == -1) {
+                                        $this->_log('cron error=' . $res['msg']);
+                                    }
                                     $res = true;
                                 }catch (\Exception $e) {
                                     $this->_log($e->getMessage() . "[" . $e->getFile() . ':' . $e->getLine() . "]");
@@ -326,74 +348,6 @@ class Crond
                 }
 
             }
-        }
-    }
-
-    /**
-     * 执行本地任务方法
-     * @param  string $className      [类名]
-     * @param  string $funcName [方法名]
-     * @param  array $arguments [额外参数]
-     * @return array
-     */
-    public function doLocalCronTask($className, $funcName, $arguments=[]) {
-        if ($className == '') {
-            $this->_log('class_name is empty!');
-            return false;
-        } elseif ($funcName == '') {
-            $this->_log('func_name is empty!');
-            return false;
-        }
-        else {
-            $cmdConfig = Config::read("cmd_path", "cron");
-            $path = WORKER_PROJECT_PATH . $cmdConfig['path'];
-            $namespace = $cmdConfig['namespace'];
-
-            //检测命名空间
-            if ($namespace != "\\") {
-                $namespace = trim($namespace, "\\");
-                if ($namespace != '') {
-                    $namespace = "\\" . $namespace . "\\";
-                } else {
-                    $namespace = "\\";
-                }
-            }
-
-            //带命名空间的类名
-            $className = $namespace . $className . $cmdConfig['suffix'];
-
-            if (!class_exists($className)) {
-                //加载类文件
-                $classFile =  $path . $className . $cmdConfig['suffix'] . '.php';
-                if (!is_file($classFile)) {
-                    $this->_log(' class ' . $className . ' Not Found!');
-                    return false;
-                }
-                require_once $classFile;
-            }
-
-            //检查类和方法是否正确
-            if (!class_exists($className)) {
-                $this->_log($className . ' does not exist! ');
-                return false;
-            }
-            $reflectionClass = new \ReflectionClass($className);
-            if (!$reflectionClass->IsInstantiable()) { //是否可实例化
-                $this->_log($className . ' is not instantiable! ');
-                return false;
-            }
-            if (!$reflectionClass->hasMethod($funcName)) { //方法是否存在
-                $this->_log($className . '::' . $funcName . ' does not exist! ');
-                return false;
-            }
-
-            unset($reflectionClass);
-
-            $instance = new $className;
-            $result = call_user_func_array([$instance, $funcName], $arguments);
-            unset($instance);
-
-            return true;
         }
     }
 
