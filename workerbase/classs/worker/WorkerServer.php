@@ -120,6 +120,9 @@ class WorkerServer
 
             //计算最少需要的内存资源
             $needMemory = $queueNum*64;
+            if (in_array(WK_ENV, ['dev', 'test'])) {
+                $needMemory = $queueNum;
+            }
             if (!is_null($this->_systemResource) && ($needMemory > $this->_systemResource['memory'])) {
                 $this->_log('error: The system has no memory resources available, need memory:' .
                     $needMemory . 'M' . ',remaining memory:' . $this->_systemResource['memory'] . 'M');

@@ -55,9 +55,9 @@ function cliRun($path, $namespace="\\", $suffix = '', $class_name = null, $func_
 
     if (!class_exists($class_name)) {
         //加载类文件
-        $class_file =  $path . $class_name . $suffix .'.php';
+        $class_file =  $path . $class_name .'.php';
         if (!is_file($class_file)) {
-            $return_arr['msg'] = ' class file ' . $class_name . ' Not Found!';
+            $return_arr['msg'] = ' class file ' . $class_file . ' Not Found!';
             return $return_arr;
         }
         require_once $class_file;

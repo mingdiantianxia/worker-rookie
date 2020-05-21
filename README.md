@@ -92,25 +92,25 @@
     cd scripts/
     
     //运行定时任务
-    sh crond.sh start
-    //停止定时任务
-    sh crond.sh stop
-    //重启定时任务
-    sh crond.sh restart
+    bash crond.sh start
+    //停止定时任务（后面加-t 1200参数，表示1200秒超时强制退出）
+    bash crond.sh stop
+    //重启定时任务（后面加-t参数，执行超时强制重启）
+    bash crond.sh restart
     
     //运行队列服务
-    sh workerServer.sh start
-    //停止队列服务
-    sh workerServer.sh stop
-    //重启队列服务
-    sh workerServer.sh restart
+    bash workerServer.sh start
+    //停止队列服务（后面加-t 1200参数，表示1200秒超时强制退出）
+    bash workerServer.sh stop
+    //重启队列服务（后面加-t参数，执行超时强制重启）
+    bash workerServer.sh restart
     
     //同时运行定时任务与worker队列服务
-    sh server.sh start
-    //同时停止定时任务与worker队列服务
-    sh server.sh stop
-    //同时重启定时任务与worker队列服务
-    sh server.sh restart
+    bash server.sh start
+    //同时停止定时任务与worker队列服务（后面加-t参数，后台执行超时强制退出）
+    bash server.sh stop
+    //同时重启定时任务与worker队列服务（后面加-t参数，后台执行超时强制重启）
+    bash server.sh restart
     
     
 ```
@@ -119,7 +119,7 @@
 ```code
   //linux中/etc/crontab添加定时任务，
   #每分钟尝试启动一次swoole定时任务和worker队列服务
-  */1 * * * * root sh 项目根目录绝对路径/scripts/server.sh start
+  */1 * * * * root bash 项目根目录绝对路径/scripts/server.sh start
   
   //或者直接运行脚本安装以上内容
   ./installCrontab

@@ -136,6 +136,15 @@ class Redis
             }
             self::$_instance = new Redis($options);
         }
+
+        if (PHP_SAPI == 'cli') {
+            try{
+                self::$_instance->getOriginInstance()->ping();//测试一下连接是否失效
+            }catch (\RedisException $e) {
+                self::$_instance->_redis = null;
+                self::$_instance->_connect();
+            }
+        }
         return self::$_instance;
     }
 

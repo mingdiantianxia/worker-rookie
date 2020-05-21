@@ -57,4 +57,13 @@ class AttachEvent {
         return false;
     }
 
+    /**
+     * 清除事件处理器
+     * @return mixed
+     */
+    public static function clearEvent()
+    {
+        self::$_event = [];
+    }
+
 }

@@ -54,6 +54,7 @@ class App
         if (AttachEvent::hasEventHandler('onBeginRequest')) {
             AttachEvent::onBeginRequest();
         }
+        AttachEvent::clearEvent();
     }
 
     /**

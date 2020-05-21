@@ -5,9 +5,21 @@ namespace workerbase\func;
  */
 function getHost()
 {
-	$url = htmlspecialchars('http://' . $_SERVER['HTTP_HOST']);
-	if(substr($url, -1) != '/') {
-	    $url .= '/';
+    $isSsl = false;
+    if (isset($_SERVER['HTTPS']) && ('1' == $_SERVER['HTTPS'] || 'on' == strtolower($_SERVER['HTTPS']))) {
+        $isSsl = true;
+    } elseif (isset($_SERVER['REQUEST_SCHEME']) && 'https' == $_SERVER['REQUEST_SCHEME']) {
+        $isSsl = true;
+    } elseif (isset($_SERVER['SERVER_PORT']) && ('443' == $_SERVER['SERVER_PORT'])) {
+        $isSsl = true;
+    } elseif (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && 'https' == $_SERVER['HTTP_X_FORWARDED_PROTO']) {
+        $isSsl = true;
+    }
+
+    $httpType = $isSsl ? 'https' : 'http';
+	$domain = htmlspecialchars($httpType . '://' . $_SERVER['HTTP_HOST']);
+	if(substr($domain, -1) != '/') {
+        $domain .= '/';
 	}
-	return $url;
+	return $domain;
 }

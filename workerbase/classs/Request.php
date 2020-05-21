@@ -522,4 +522,16 @@ class Request
         return $ip[$type];
     }
 
+    /**
+     * 路由重定向
+     * @param string $url 路由地址
+     * @param int $statusCode 状态码
+     */
+    public function redirect($url, $statusCode=302)
+    {
+        if(substr($url, 0, 1) == '/') {
+            $url = ltrim($url , '/');
+        }
+        header('Location: ' . $this->domain() . '/' . $url, true, $statusCode);
+    }
 }

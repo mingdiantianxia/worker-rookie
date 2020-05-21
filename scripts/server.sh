@@ -53,13 +53,13 @@ stop() {
 			if [ ! -f "$cronPidPath" ]; then
 				cronIsFalse=0
 			else
-			    kill $cronPid
+			    kill $cronPid > /dev/null 2>&1
             fi
 
 			if [ ! -f "$workerPidPath" ]; then
 				workerIsFalse=0
 			else
-			    kill $workerPid
+			    kill $workerPid > /dev/null 2>&1
             fi
 
         fi
@@ -86,22 +86,47 @@ stop() {
 	return $isFalse
 }
 
+#强制退出
+forceStop() {
+    bash ./crond.sh stop -t 900 > /dev/null 2>&1 &
+    bash ./workerServer.sh stop -t 900 > /dev/null 2>&1 &
+    echo "stop cron && workerServer ok3."
+	return 0
+}
+
 #同时启动cron和worker
 start() {
-    sh ./crond.sh start
-    sh ./workerServer.sh start
+    bash ./crond.sh start
+    bash ./workerServer.sh start
 	return 0
 }
 
 #重启cron和worker服务
 restart() {
-	if stop && start;then
-		echo "restart cron && workerServer ok."
-		return 0
-	else
-		echo "restart cron && workerServer failed."
-		return 1 
-	fi
+    hasT=1
+    for i in `seq $#`; do
+        param=`eval echo '$'$i`
+        case "$param" in
+        -t)
+            hasT=0
+            ;;
+        esac
+    done
+
+    if [ $hasT -eq 0 ];then
+        bash ./crond.sh restart -t > /dev/null 2>&1 &
+        bash ./workerServer.sh restart -t > /dev/null 2>&1 &
+        echo "restart cron && workerServer ok."
+        return 0
+    else
+        if stop && start;then
+            echo "restart cron && workerServer ok."
+            return 0
+        else
+            echo "restart cron && workerServer failed."
+            return 1
+        fi
+    fi
 }
 
 #检测workerServer进程是否存在
@@ -113,9 +138,9 @@ check_worker_exist() {
     pid=`cat $workerPidPath`
     pids=`ps aux | grep workerServer.php | grep -v grep | awk '{print $2}'`
     pidIsExits=0;
-    for i in ${pids[@]}
+    for i in ${pids}
         do
-            if [ "$i" -eq "$pid" ]; then
+            if [ $i -eq $pid ]; then
                 pidIsExits=1
                 break
             fi
@@ -133,9 +158,9 @@ check_crond_exist() {
     pid=`cat $cronPidPath`
     pids=`ps aux | grep crond.php | grep -v grep | awk '{print $2}'`
     pidIsExits=0;
-    for i in ${pids[@]}
+    for i in ${pids}
         do
-            if [ "$i" -eq "$pid" ]; then
+            if [ $i -eq $pid ]; then
                 pidIsExits=1
                 break
             fi
@@ -150,10 +175,24 @@ start)
     start
     ;;
 stop)
-    stop
+    hasT=1
+    for i in `seq $#`; do
+        param=`eval echo '$'$i`
+        case "$param" in
+        -t)
+            hasT=0
+            ;;
+        esac
+    done
+
+    if [ $hasT -eq 0 ];then
+       forceStop
+    else
+       stop
+    fi
     ;;
 restart)
-    restart
+    restart `echo $*|xargs -n 1|grep -v $1`
     ;;
 *)
     echo "Usage: server.sh {start|stop|restart|help}"
