@@ -115,6 +115,11 @@ class Macaw {
             // Grab the controller name and method call
             $segments = explode('@',$last);
 
+            //blacklist of method
+            if (in_array($segments[1], ['filters'])) {
+              return false;
+            }
+
             // Instanitate controller
             $controller = new $segments[0]();
 
@@ -174,6 +179,11 @@ class Macaw {
 
               // Grab the controller name and method call
               $segments = explode('@',$last);
+
+              //blacklist of method
+              if (in_array($segments[1], ['filters'])) {
+                  return false;
+              }
 
               // Instanitate controller
               $controller = new $segments[0]();
