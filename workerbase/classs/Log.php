@@ -59,7 +59,6 @@ class Log
     public function init($config = [])
     {
         $name = isset($config['name']) ? $config['name'] : '';
-        $filename = date('Ym') . '/' . date('d') . '.log';
         $fname = '';
         if (!empty($name)) {
             $fname = '_' . $name;
@@ -105,7 +104,7 @@ class Log
     {
         $tag = 'wk';
         if (is_null($prefix)) {
-            $prefix = '';
+            $prefix = 'info';
         } elseif (!empty($prefix)) {
             $tag = $prefix;
         }
@@ -186,6 +185,16 @@ class Log
         }
         $msg .= ']';
 
+        $callFile = $bt[0];
+        $msg .= " ["; //附加调试参数
+        if (isset($callFile['file'])) {
+            $msg .= "file={$callFile['file']}";
+            if (isset($callFile['line'])) {
+                $msg .= '-' . $callFile['line'];
+            }
+        }
+        $msg .= ']';
+
         $msg .= " [requireId=".self::generateRequireId()."]";
 
         $args[0] = $msg;
@@ -233,6 +242,16 @@ class Log
                     $arguments = json_encode($arguments);
                     $msg .= " args={$arguments}";
                 }
+            }
+        }
+        $msg .= ']';
+
+        $callFile = $bt[0];
+        $msg .= " ["; //附加调试参数
+        if (isset($callFile['file'])) {
+            $msg .= "file={$callFile['file']}";
+            if (isset($callFile['line'])) {
+                $msg .= '-' . $callFile['line'];
             }
         }
         $msg .= ']';
