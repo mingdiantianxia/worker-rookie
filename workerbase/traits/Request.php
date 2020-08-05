@@ -125,7 +125,7 @@ trait Request {
         if (empty($param)) {
             $temp = $_GET;
         }
-        elseif (isset($_POST[$param])) {
+        elseif (isset($_GET[$param])) {
             $temp = $_GET[$param];
         }
         else {
