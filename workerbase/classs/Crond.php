@@ -206,8 +206,7 @@ class Crond
 
                                     set_time_limit(0);
                                     $cmdConfig = Config::read("cmd_path", "cron");
-                                    $res = loadf(
-                                        'cliRun',
+                                    $res = cliRun(
                                         WORKER_PROJECT_PATH . $cmdConfig['path'],
                                         $cmdConfig['namespace'],
                                         $cmdConfig['suffix'],
@@ -305,8 +304,7 @@ class Crond
 //                                    $worker->exec($this->_conf['cmd'],  $cmdArgs);
                                     set_time_limit(0);
                                     $cmdConfig = Config::read("cmd_path", "cron");
-                                    $res = loadf(
-                                        'cliRun',
+                                    $res = cliRun(
                                         WORKER_PROJECT_PATH . $cmdConfig['path'],
                                         $cmdConfig['namespace'],
                                         $cmdConfig['suffix'],
