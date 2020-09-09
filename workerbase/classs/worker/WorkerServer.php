@@ -3,6 +3,8 @@ namespace workerbase\classs\worker;
 use Swoole\Process;
 use Swoole\Timer;
 use workerbase\classs\Config;
+use workerbase\classs\datalevels\Redis;
+use workerbase\classs\Log;
 use workerbase\classs\MQ\imps\MessageServer;
 
 /**
@@ -56,6 +58,31 @@ class WorkerServer
 
     //配置的总进程数
     private $_workerConfigThreadNum = 0;
+
+    //队列是否已经初始化过
+    private $_hasInit = false;
+
+    /**
+     * 上次重新分配队列进程资源的时间戳
+     * @var bool
+     */
+    private $_reallocateTimestamp = null;
+
+    /**
+     * 每个队列动态配置的进程数量
+     * 格式:
+     *    'jobName' => '进程数量'
+     * @var bool
+     */
+    private $_jobNameToThreadNum = [];
+
+    /**
+     * 队长进程（值守进程）
+     * 格式:
+     *    'jobName' => 'pid'
+     * @var bool
+     */
+    private $_jobNameToCaptainPid = [];
 
     private function __construct()
     {
@@ -119,12 +146,14 @@ class WorkerServer
             $queueNum = count($this->_conf['workerConf']);
 
             //计算最少需要的内存资源
-            $needMemory = $queueNum*64;
+            $needMemory = $queueNum*32;
             if (in_array(WK_ENV, ['dev', 'test'])) {
                 $needMemory = $queueNum;
             }
             if (!is_null($this->_systemResource) && ($needMemory > $this->_systemResource['memory'])) {
                 $this->_log('error: The system has no memory resources available, need memory:' .
+                    $needMemory . 'M' . ',remaining memory:' . $this->_systemResource['memory'] . 'M');
+                Log::error('error: The system has no memory resources available, need memory:' .
                     $needMemory . 'M' . ',remaining memory:' . $this->_systemResource['memory'] . 'M');
                 $this->_killMaster();
             }
@@ -158,15 +187,66 @@ class WorkerServer
             $this->_killMaster();
         }
 
+        //10秒，进行一次队列进程资源调配
+        $isReallocation = false;
+        if ($this->_hasInit && (time() - $this->_reallocateTimestamp) > 10) {
+            $isReallocation = true;
+        }
+
+        $masterPid = posix_getpid();
         foreach ($workersConf as $jobName => $conf) {
             if (!isset($conf['threadNum']) || !isset($conf['lifeTime']) || !isset($conf['maxHandleNum'])) {
                 $this->_log("worker config error. jobName={$jobName}");
                 continue;
             }
 
-            if (isset($this->_systemResource['resourceThreadNum'])) {
-                $threadNum = max(1, floor(($conf['threadNum']/$this->_workerConfigThreadNum)*$this->_systemResource['resourceThreadNum']));
-                $conf['threadNum'] = min($threadNum, $conf['threadNum']);
+            //该队列目前有多少个worker进程在执行
+            $workers = $this->_getWorkers($jobName);
+
+            $isKeepThreadNum = true;//是否保持伸缩记录的进程数
+            //10秒，进行一次队列进程资源调配，发现消息积压的队列，优先配置进程
+            if ($isReallocation) {
+                //总的可用进程资源
+                $countThreadNum = $this->_workerConfigThreadNum;
+                if (isset($this->_systemResource['resourceThreadNum'])) {
+                    $countThreadNum = $this->_systemResource['resourceThreadNum'];
+                }
+                //总剩余可用进程数
+                $residueThreadNum = max(0, $countThreadNum - $this->_getTotalWorkers());
+                if ($residueThreadNum) {
+                    //目前积压的消息数量
+                    $msgCount = MessageServer::getInstance(null, true)->getQueueSize($jobName);
+                    if (false !== $msgCount) {
+                        $msgBacklogPoint = isset($conf['msgBacklogPoint'])?$conf['msgBacklogPoint']:$this->_conf['msgbacklogpoint'];
+                        //消息积压增量
+                        if ($msgCount > $msgBacklogPoint) {
+                            //可调配的最大进程数
+                            $elasticWorkers = max(0, $conf['threadNum'] - $workers);
+                            $elasticWorkers = min($residueThreadNum, $elasticWorkers);
+                            if ($elasticWorkers) {
+                                //先分配一条进程，逐步扩容
+                                $this->_jobNameToThreadNum[$jobName] = $workers + 1;
+                            }
+                            Log::info("jobName={$jobName}, has_msg_num:" .$msgCount.',worker_num:'.$workers
+                                .',new_worker_num:'.$this->_jobNameToThreadNum[$jobName]
+                                .',all_thread_num:'.$countThreadNum.',residue_thread_num:'.$residueThreadNum);
+                        }
+                    }
+                }
+            }
+            elseif (!$this->_hasInit) {
+                //每个队列按比例开进程
+                if (isset($this->_systemResource['resourceThreadNum'])) {
+                    $threadNum = max(1, floor(($conf['threadNum']/$this->_workerConfigThreadNum)*$this->_systemResource['resourceThreadNum']));
+                    $conf['threadNum'] = min($threadNum, $conf['threadNum']);
+                }
+
+                $this->_jobNameToThreadNum[$jobName] = $conf['threadNum'];
+                $isKeepThreadNum = false;
+            }
+
+            if ($isKeepThreadNum) {
+                $conf['threadNum'] = $this->_jobNameToThreadNum[$jobName];
             }
 
             //控制测试环境的进程数
@@ -175,8 +255,6 @@ class WorkerServer
                 $conf['threadNum'] = 1;
             }
 
-            //该队列目前有多少个worker进程在执行
-            $workers = $this->_getWorkers($jobName);
             if ($workers >= $conf['threadNum']) {
                 continue;
             }
@@ -185,12 +263,18 @@ class WorkerServer
             $hasWorkers = $conf['threadNum'] - $workers;
             //启动worker
             for ($i=0; $i < $hasWorkers; $i++) {
-                $workerProcess = new Process(function (Process $worker) use ($jobName) {
+                //是否是队长进程
+                $isFirst = false;
+                if (!isset($this->_jobNameToCaptainPid[$jobName])) {
+                    //队长进程值守
+                    $isFirst = true;
+                }
+                $workerProcess = new Process(function (Process $worker) use ($jobName, $isFirst, $masterPid) {
                     if (in_array(WK_ENV, ['dev', 'local_debug'])) {
                         $this->_log("start worker, jobName={$jobName}, pid={$worker->pid}");
                     }
                     //直接执行，处理队列
-                    Worker::getInstance($jobName)->run();
+                    Worker::getInstance($jobName, $isFirst, $masterPid)->run();
                 }, false, 0);
 
                 $pid = $workerProcess->start();
@@ -201,6 +285,14 @@ class WorkerServer
                 //注册worker
                 $this->_addWorker($jobName, $pid);
             }
+        }
+
+        //标记队列服务已完成初始化
+        if (!$this->_hasInit) {
+            $this->_hasInit = true;
+            $this->_reallocateTimestamp = time();
+        } elseif ($isReallocation) {
+            $this->_reallocateTimestamp = time();
         }
     }
 
@@ -233,11 +325,18 @@ class WorkerServer
                 //关闭监控
                 if ($this->_monitorTimerId) {
                     Timer::clear($this->_monitorTimerId);
+                    $this->_monitorTimerId = null;
                 }
                 //主进程退出信号标记（子进程都退出，则主进程退出）
                 $this->_masterProcessExit = true;
                 if (!empty($this->_pidMapToWorkerType)) {
                     foreach (array_keys($this->_pidMapToWorkerType) as $pid) {
+                        //检查子进程心跳
+                        if (!Process::kill($pid, SIG_DFL)) {
+                            if ($this->_delWorkerByPid($pid)) {
+                                $this->_log("回收进程资源2, pid={$pid}");
+                            }
+                        }
                         Process::kill($pid, SIGTERM);
                     }
                 } elseif ($this->_getTotalWorkers() == 0) {
@@ -294,6 +393,10 @@ class WorkerServer
         }
         $this->_runningWorkers[$jobName][$pid] = true;
         $this->_pidMapToWorkerType[$pid] = $jobName;
+
+        if (!isset($this->_jobNameToCaptainPid[$jobName])) {
+            $this->_jobNameToCaptainPid[$jobName] = $pid;
+        }
     }
 
     /**
@@ -323,6 +426,14 @@ class WorkerServer
         if (isset($this->_runningWorkers[$workerType]) && isset($this->_runningWorkers[$workerType][$pid])) {
             unset($this->_runningWorkers[$workerType][$pid]);
         }
+
+        if (isset($this->_jobNameToCaptainPid[$workerType])) {
+            unset($this->_jobNameToCaptainPid[$workerType]);
+        }
+        //减掉队列出让的进程
+        if (Redis::getInstance([], true)->rPop('worker-exit-flag:' . $workerType)) {
+            $this->_jobNameToThreadNum[$workerType] = max($this->_jobNameToThreadNum[$workerType] - 1, 1);
+        }
         return true;
     }
 
@@ -344,17 +455,18 @@ class WorkerServer
 
     private function _killMaster()
     {
+        Process::kill(posix_getpid(), SIGTERM);
         //主进程退出信号标记（子进程都退出，则主进程退出）
         $this->_masterProcessExit = true;
         if (!empty($this->_pidMapToWorkerType)) {
             foreach (array_keys($this->_pidMapToWorkerType) as $pid) {
                 Process::kill($pid, SIGTERM);
             }
-        } elseif ($this->_getTotalWorkers() == 0) {
+        }
+        if ($this->_getTotalWorkers() == 0) {
             $this->_log("worker server shutdown...");
             //当子进程都退出后，结束masker进程
             @unlink($this->_conf['pid']);
-            Process::kill(posix_getpid(), SIGTERM);
             exit(0);
         }
     }

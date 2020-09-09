@@ -12,7 +12,7 @@ cronPidPath="../runtime/log/workerlog/crond.pid"
 
 #同时停止cron和worker
 stop() {
-    if [ -f $cronPidPath ]; then
+    if [ -f "$cronPidPath" ]; then
         cronPid=`cat $cronPidPath`
         echo "stop crond server, pid="$cronPid"..."
 
@@ -26,7 +26,7 @@ stop() {
         fi
      fi
 
-     if [ -f $workerPidPath ]; then
+     if [ -f "$workerPidPath" ]; then
          workerPid=`cat $workerPidPath`
          echo "stop worker server, pid="$workerPid"..."
 
@@ -88,8 +88,8 @@ stop() {
 
 #强制退出
 forceStop() {
-    bash ./crond.sh stop -t 900 > /dev/null 2>&1 &
-    bash ./workerServer.sh stop -t 900 > /dev/null 2>&1 &
+    nohup bash ./crond.sh stop -t 900 > /dev/null 2>&1 &
+    nohup bash ./workerServer.sh stop -t 900 > /dev/null 2>&1 &
     echo "stop cron && workerServer ok3."
 	return 0
 }
@@ -114,8 +114,8 @@ restart() {
     done
 
     if [ $hasT -eq 0 ];then
-        bash ./crond.sh restart -t > /dev/null 2>&1 &
-        bash ./workerServer.sh restart -t > /dev/null 2>&1 &
+        nohup bash ./crond.sh restart -t > /dev/null 2>&1 &
+        nohup bash ./workerServer.sh restart -t > /dev/null 2>&1 &
         echo "restart cron && workerServer ok."
         return 0
     else
@@ -131,7 +131,7 @@ restart() {
 
 #检测workerServer进程是否存在
 check_worker_exist() {
-    if [ ! -f $workerPidPath ]; then
+    if [ ! -f "$workerPidPath" ]; then
         return 0
     fi
 
@@ -151,7 +151,7 @@ check_worker_exist() {
 
 #检测crond进程是否存在
 check_crond_exist() {
-    if [ ! -f $cronPidPath ]; then
+    if [ ! -f "$cronPidPath" ]; then
         return 0
     fi
 

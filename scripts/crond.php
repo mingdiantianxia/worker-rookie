@@ -16,7 +16,7 @@ defined('STDIN') or define('STDIN', fopen('php://stdin', 'r'));
 define('WK_APP_ID', "cron");
 define('WORKER_PROJECT_PATH', __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR);
 
-require_once WORKER_PROJECT_PATH . 'workerbase/Load.php';
+require_once WORKER_PROJECT_PATH . 'workerbase/helper.php';
 require_once WORKER_PROJECT_PATH . 'workerbase/vendor/autoload.php';
 
 date_default_timezone_set('PRC');

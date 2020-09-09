@@ -298,19 +298,19 @@ class CoHttpClient
     //初始化响应
     protected function initResponse($cid = 0)
     {
-        $this->response = $this->_client[$cid]->getBody();
+        $this->response = $this->_client[$cid]->body;
         $this->client_error_code = $this->_client[$cid]->errCode;
         $this->client_error_message = socket_strerror($this->client_error_code);
         $this->client_error = !($this->client_error_code === 0);
-        $this->http_status_code = $this->_client[$cid]->getStatusCode();
+        $this->http_status_code = $this->_client[$cid]->statusCode;
         $this->http_error = in_array(floor($this->http_status_code / 100), array(
             4,
             5
         ));
         $this->error = $this->client_error || $this->http_error;
         $this->error_code = $this->error ? ($this->client_error ? $this->client_error_code : $this->http_status_code) : 0;
-        $this->response_headers = $this->_client[$cid]->getHeaders();
-        $this->response_cookies = $this->_client[$cid]->getCookies();
+        $this->response_headers = $this->_client[$cid]->headers;
+        $this->response_cookies = $this->_client[$cid]->cookies;
         $this->http_error_message = $this->error ? $this->response : '';
         $this->error_message = $this->client_error ? $this->client_error_message : $this->http_error_message;
     }

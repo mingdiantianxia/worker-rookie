@@ -99,10 +99,50 @@ class RedisMQ extends BaseMQ implements IMQ
         catch (\RedisException $e) {
             Log::error("redis send failure, queue={$queueName}, error=". $e->getMessage() . "[" . $e->getFile() . ':' . $e->getLine() . "]");
             //redis连接错误，不抛异常
-            return false;
+            return 0;
         }
         catch (\Exception $e) {
             Log::error("send message failure. queue={$queueName}, error=". $e->getMessage() . "[" . $e->getFile() . ':' . $e->getLine() . "]");
+            return false;
+        }
+        return true;
+    }
+
+
+    /**
+     * 发送消息(消息不允许重复)
+     * @param string $queueName     - 队列名
+     * @param string $msgBody       - 消息内容
+     * @return bool
+     * 成功返回true, 失败返回false
+     */
+    public function uniqueSend($queueName, $msgBody)
+    {
+        if (empty($queueName)) {
+            return false;
+        }
+
+        try{
+            $script = '
+                if redis.call("LREM", KEYS[1], ARGV[2], ARGV[1]) then
+                    return redis.call("LPUSH", KEYS[1],  ARGV[1])
+                else
+                    return 0
+                end
+            ';
+            $res = $this->_client->getOriginInstance()->eval($script, [$queueName, $msgBody, 0], 1);
+            if (!$res) {
+                Log::error("send unique message failure. queue={$queueName}");
+                return false;
+            }
+        }
+        catch (\RedisException $e) {
+            Log::error("redis unique send failure, queue={$queueName}, error=". $e->getMessage() . "[" . $e->getFile() . ':' . $e->getLine() . "]");
+            //redis连接错误，不抛异常
+            return 0;//0表示连接错误
+        }
+        catch (\Exception $e) {
+            Log::error("send unique message failure. queue={$queueName}, error=". $e->getMessage() . "[" . $e->getFile() . ':' . $e->getLine() . "]");
             return false;
         }
         return true;
@@ -127,6 +167,40 @@ class RedisMQ extends BaseMQ implements IMQ
             if ($msgBody && in_array(substr($msgBody, 0, 1), ['+', ':', '-', '$', '*'])) {
                 return false;
             }
+
+            if (!$msgBody) {
+                if (in_array(Config::get('env_flag'), ['dev', 'local_debug'])) { //没有消息
+                    Log::info("receive message failure. queue={$queueName}");
+                }
+                return false;
+            }
+
+            //替换备份队列的时间戳为消息获取时间
+            $workerMsg = new WorkerMessage($msgBody);
+            $useNum = $workerMsg->getUseNum();
+            $workerMsg->setTimestamp(time());
+            $workerMsg->setUseNum($useNum-1);
+            $newMsgBody = $workerMsg->serialize();
+
+            //插入一条新备份消息
+            $script = '
+                if redis.call("LREM", KEYS[1], 0, ARGV[1]) then
+                    return redis.call("LPUSH", KEYS[1], ARGV[2])
+                else
+                    return 0
+                end
+            ';
+            $res = $this->_client->getOriginInstance()->eval($script, [$queueName.'-bak', $msgBody, $newMsgBody], 1);
+            if (!$res) {
+                //备份队列替换失败，休息100毫秒再尝试替换
+                usleep(100*1000);
+                $res = $this->_client->getOriginInstance()->eval($script, [$queueName.'-bak', $msgBody, $newMsgBody], 1);
+            }
+            if ($res) {
+                $msgBody = $newMsgBody;
+            }
+
+            unset($workerMsg, $newMsgBody);
         }
         catch (\RedisException $e) {
             Log::error("redis receive failure, queue={$queueName}, error=". $e->getMessage() . "[" . $e->getFile() . ':' . $e->getLine() . "]");
@@ -135,13 +209,6 @@ class RedisMQ extends BaseMQ implements IMQ
         }
         catch (\Exception $e) {
             Log::error("error receive message failure. queue={$queueName}, error=". $e->getMessage() . "[" . $e->getFile() . ':' . $e->getLine() . "]");
-            return false;
-        }
-
-        if (!$msgBody) {
-            if (in_array(Config::read('env'), ['dev', 'local_debug'])) { //没有消息
-                Log::info("receive message failure. queue={$queueName}");
-            }
             return false;
         }
 
@@ -159,6 +226,28 @@ class RedisMQ extends BaseMQ implements IMQ
     public function retry($queueName, $token)
     {
         return true;
+    }
+
+    /**
+     * 获取队列消息总数
+     * @param string $jobName
+     * @return bool|false|int
+     */
+    public function getQueueSize($jobName)
+    {
+        $queueName = $this->getQueueNameByJobName($jobName);
+        try{
+            return $this->_client->lSize($queueName);
+        }
+        catch (\RedisException $e) {
+            Log::error("redis get queue size failure, queue={$queueName}, error=". $e->getMessage() . "[" . $e->getFile() . ':' . $e->getLine() . "]");
+            //redis连接错误，不抛异常
+            return -1;//-1表示连接错误
+        }
+        catch (\Exception $e) {
+            Log::error("get queue size failure. queue={$queueName}, error=". $e->getMessage() . "[" . $e->getFile() . ':' . $e->getLine() . "]");
+            return false;
+        }
     }
 
     /**
@@ -212,9 +301,10 @@ class RedisMQ extends BaseMQ implements IMQ
             $workerMsg = new WorkerMessage($msgBody);
             $timestamp = $workerMsg->getTimestamp();
             $useNum = $workerMsg->getUseNum();
+            $date = $workerMsg->getDate();
 
-            //重复消费10次，删除
-            if ($useNum > 10) {
+            //重复消费20次，删除
+            if ($useNum > 20) {
                 $res = $this->delete($queueName, $msgBody);
                 if (!$res && $res === false) {
                     Log::error("overuse delete message failure. queue={$queueName}:".json_encode($msgBody));
@@ -226,35 +316,48 @@ class RedisMQ extends BaseMQ implements IMQ
                 if (!$res && $res === 0) {
                     throw new \RedisException('redis connnect false');
                 }
+                Log::error("overuse delete message success. queue={$queueName}:".json_encode($msgBody));
                 return true;
             }
 
-            //十分钟没消费重回队列
-            if ((time() - $timestamp) > 600) {
-                $workerMsg->setTimestamp(time());
+            //十分钟没消费重回队列（1.消息10分钟没处理完或失败，2.积压的消息并发获取和检查）
+            if ($timestamp > 1 && (time() - $timestamp) > 600) {
+                $workerMsg->setTimestamp(1);
+                $workerMsg->setDate(date('Y-m-d'));
                 $res = $this->send($queueName, $workerMsg->serialize());
                 if ($res) {
                     $res = $this->delete($queueName, $msgBody);
-                    if (!$res && $res === false) {
+                    if ($res === 0) {
+                        self::clearInstance();
+                        $res = self::getInstance()->delete($queueName, $msgBody);
+                    }
+
+                    if (false === $res) {
                         Log::error("retry delete message failure. queue={$queueName}:".json_encode($msgBody));
                         //备份队列删除失败，休息100毫秒再尝试删除
                         usleep(100*1000);
                         $res = $this->delete($queueName, $msgBody);
                     }
-
-                    if (!$res && $res === 0) {
-                        self::clearInstance();
-                        self::getInstance()->delete($queueName, $msgBody);
-                    }
                 } elseif(!$res && $res === 0) {
                     throw new \RedisException('redis connnect false');
                 }
             }
+            elseif (1 == $timestamp && !empty($date) && (strtotime(date('Y-m-d').' 00:00:00') - strtotime($date.' 00:00:00')) > 864000) {
+                //唯一消息类型
+                //1、获取时，替换消息失败，并且删除失败，残留
+                //2、当前执行10天前的消息
+                $res = $this->delete($queueName, $msgBody);
+            }
+
+            unset($workerMsg);
         }
         catch (\RedisException $e) {
+            Log::error("check redis failure, queue={$queueName}, error=". $e->getMessage() . "[" . $e->getFile() . ':' . $e->getLine() . "]");
+            self::clearInstance();
             return false;
         }
         catch (\Exception $e) {
+            Log::error("check message failure, queue={$queueName}, error=". $e->getMessage() . "[" . $e->getFile() . ':' . $e->getLine() . "]");
             return false;
         }
 

@@ -32,6 +32,16 @@ interface IMQ
      */
     public function send($queueName, $msgBody);
 
+
+    /**
+     * 发送不重复消息
+     * @param string $queueName     - 队列名
+     * @param string $msgBody       - 消息内容
+     * @return bool 成功返回true, 失败返回false
+     * @throws \Exception
+     */
+    public function uniqueSend($queueName, $msgBody);
+
     /**
      * 获取消息
      * @param string $queueName     - 队列名
@@ -55,6 +65,13 @@ interface IMQ
      * @return bool 删除成功返回true, 失败返回false
      */
     public function delete($queueName, $value);
+
+    /**
+     * 获取队列消息总数
+     * @param string $jobName
+     * @return bool|false|int
+     */
+    public function getQueueSize($jobName);
 
     /**
      * 根据worker type获取队列名

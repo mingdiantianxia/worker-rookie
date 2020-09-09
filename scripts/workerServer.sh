@@ -30,13 +30,14 @@ stop() {
     check_mystop_exist
     stopIsExist=$?
     if [ $stopIsExist -eq 1 ];then
+        echo "workerServer server is being stopped..."
         exit 1
     else
         echo $$ > $myStopPidPath
     fi
 
 	isFalse=0
-    if [ -f $pidPath ]; then
+    if [ -f "$pidPath" ]; then
         pid=`cat $pidPath`
         echo "stop worker server, pid="$pid"..."
 
@@ -84,7 +85,7 @@ stop() {
 				isFalse=0
                 break
             else
-                kill $pid
+                kill $pid 2> /dev/null
             fi
             echo -n
             try=`expr $try + 1`
@@ -113,13 +114,20 @@ stop() {
 
 #启动workerServer
 start() {
+    check_mystop_exist
+    stopIsExist=$?
+    if [ $stopIsExist -eq 1 ];then
+        echo "workerServer server is being stopped..."
+        exit 1
+    fi
+
     check_worker_exist
     pidIsExits=$?
     if [ $pidIsExits -eq 1 ]; then
         echo "workerServer server had running..."
     else
         #杀死所有残留的子进程
-        ps -eaf |grep "workerServer.php" | grep -v "grep"| awk '{print $2}'|xargs kill > /dev/null 2>&1
+        #ps -eaf |grep "workerServer.php" | grep -v "grep"| awk '{print $2}'|xargs kill > /dev/null 2>&1
         echo "start workerServer server..."
         threadNum=`availableThreadNum`
         cmd=$phpbin" workerServer.php -d -m "$threadNum
@@ -162,7 +170,7 @@ restart() {
 
 #检测workerServer进程是否存在
 check_worker_exist() {
-    if [ ! -f $pidPath ]; then
+    if [ ! -f "$pidPath" ]; then
         return 0
     fi
 
@@ -181,7 +189,7 @@ check_worker_exist() {
 }
 
 check_mystop_exist() {
-    if [ ! -f $myStopPidPath ]; then
+    if [ ! -f "$myStopPidPath" ]; then
         return 0
     fi
 
@@ -201,11 +209,12 @@ check_mystop_exist() {
 
 #检测系统剩余内存资源
 availableThreadNum() {
-	availableMemory=`free -m |grep Mem | grep -v "grep" | awk '{print $4}'`
+	availableMemory=`cat /proc/meminfo|awk '/MemFree/{print $2}'|xargs -I [] awk "BEGIN{print []/1024}"`
+	availableMemory="${availableMemory%%.*}"
 	t=`expr $availableMemory - 300`
 
 	if [ $t -gt 0 ];then
-	   t=`awk "BEGIN{print $t*0.7/64}"`
+	   t=`awk "BEGIN{print $t/32}"`
 	   t="${t%%.*}"
 	else
 	   t=0

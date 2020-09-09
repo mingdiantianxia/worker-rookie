@@ -19,6 +19,8 @@ class WorkerMessage
     private $_timestamp = '';
     //消费次数
     private $_useNum = 0;
+    //发送日期
+    private $_date = '';
 
     public function __construct($srcData = '')
     {
@@ -75,7 +77,7 @@ class WorkerMessage
     /**
      * @param $useNum
      */
-    private function setUseNum($useNum)
+    public function setUseNum($useNum)
     {
         $this->_useNum = $useNum;
     }
@@ -85,9 +87,24 @@ class WorkerMessage
         return $this->_useNum;
     }
 
-    private function setId($id)
+    public function setId($id)
     {
         $this->_id = $id;
+    }
+
+    public function getMsgId()
+    {
+        return $this->_id;
+    }
+
+    public function setDate($date)
+    {
+        $this->_date = $date;
+    }
+
+    public function getDate()
+    {
+        return $this->_date;
     }
 
     /**
@@ -99,6 +116,7 @@ class WorkerMessage
         $data = [
             '_id' => $this->_id?$this->_id:uniqid().$this->createRandomStr(16),
             '_timestamp' => $this->_timestamp?$this->_timestamp:time(),
+            '_date' => $this->_date?$this->_date:date('Y-m-d'),
             '_useNum' => $this->_useNum+1,
             'workerType' => $this->_workerType,
             'params' => $this->_params,
@@ -128,5 +146,6 @@ class WorkerMessage
         $this->setTimestamp($data['_timestamp']);
         $this->setId($data['_id']);
         $this->setUseNum($data['_useNum']);
+        $this->setDate($data['_date']);
     }
 }

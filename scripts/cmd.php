@@ -20,11 +20,11 @@ define('WK_APP_ID', "cron");
 //定义项目根目录
 define('WORKER_PROJECT_PATH', __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR);
 
-require_once WORKER_PROJECT_PATH . 'workerbase/Load.php';
+require_once WORKER_PROJECT_PATH . 'workerbase/helper.php';
 require_once WORKER_PROJECT_PATH . 'workerbase/vendor/autoload.php';
 
 date_default_timezone_set('PRC');
-loadc('loader')->run();
+loadc('Loader')->run();
 
 //初始化当前系统环境
 define('WK_ENV',  Config::read('env'));
@@ -36,7 +36,7 @@ App::run();
 $cmdConfig = Config::read("cmd_path", "cron");
 
 try{
-    $result = loadf('cliRun', WORKER_PROJECT_PATH . $cmdConfig['path'], $cmdConfig['namespace'], $cmdConfig['suffix']);
+    $result = cliRun(WORKER_PROJECT_PATH . $cmdConfig['path'], $cmdConfig['namespace'], $cmdConfig['suffix']);
     if (isset($result['code']) && $result['code'] == -1) {
         //搜集没有返回true的任务日志
        Log::err('cmd_error:' . $result['msg'], $argv);

@@ -29,13 +29,14 @@ stop() {
     check_mystop_exist
     stopIsExist=$?
     if [ $stopIsExist -eq 1 ];then
+        echo "crond server is being stopped..."
         exit 1
     else
         echo $$ > $myStopPidPath
     fi
 
 	isFalse=0
-    if [ -f $pidPath ]; then
+    if [ -f "$pidPath" ]; then
         pid=`cat $pidPath`
         echo "stop crond server, pid="$pid"..."
 
@@ -83,7 +84,7 @@ stop() {
 				isFalse=0
                 break
             else
-                kill $pid
+               kill $pid 2> /dev/null
             fi
             echo -n
             try=`expr $try + 1`
@@ -112,13 +113,20 @@ stop() {
 
 #启动crond server
 start() {
+    check_mystop_exist
+    stopIsExist=$?
+    if [ $stopIsExist -eq 1 ];then
+        echo "crond server is being stopped..."
+        exit 1
+    fi
+
     check_crond_exist
     pidIsExits=$?
     if [ $pidIsExits -eq 1 ]; then
         echo "crond server had running..."
     else
         #杀死所有残留的子进程
-        ps -eaf |grep "crond.php" | grep -v "grep"| awk '{print $2}'|xargs kill > /dev/null 2>&1
+        #ps -eaf |grep "crond.php" | grep -v "grep"| awk '{print $2}'|xargs kill > /dev/null 2>&1
         echo "start crond server..."
         #启动并传递一个d参数作为后台进程
         cmd=$phpbin" crond.php -d"
@@ -161,7 +169,7 @@ restart() {
 
 #检测crond进程是否存在
 check_crond_exist() {
-    if [ ! -f $pidPath ]; then
+    if [ ! -f "$pidPath" ]; then
         return 0
     fi
 
@@ -180,7 +188,7 @@ check_crond_exist() {
 }
 
 check_mystop_exist() {
-    if [ ! -f $myStopPidPath ]; then
+    if [ ! -f "$myStopPidPath" ]; then
         return 0
     fi
 

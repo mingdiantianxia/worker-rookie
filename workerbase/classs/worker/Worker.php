@@ -1,8 +1,9 @@
 <?php
-//declare(ticks=1);//每执行一次低级语句会检查一次该进程是否有未处理过的信号（用于调用信号处理器）
+declare(ticks=1);//每执行一次低级语句会检查一次该进程是否有未处理过的信号（用于调用信号处理器）
 namespace workerbase\classs\worker;
 use workerbase\classs\App;
 use workerbase\classs\Config;
+use workerbase\classs\datalevels\Redis;
 use workerbase\classs\Log;
 use workerbase\classs\MQ\imps\MessageServer;
 use workerbase\classs\ServiceFactory;
@@ -48,13 +49,48 @@ class Worker
     private $_flgWorkerExit = false;
 
     /**
+     * 进程是否值守
+     * @var bool
+     */
+    private $_onDuty = true;
+
+    /**
+     * 没有拉取到消息的时间戳
+     * @var bool
+     */
+    private $_noReceiveMsgTimestamp = null;
+
+    /**
+     * 主进程id
+     * @var bool
+     */
+    private $_masterPid = 0;
+
+    /**
+     * 上次检查主进程时间戳
+     * @var bool
+     */
+    private $_checkMasterTimestamp = null;
+
+    /**
+     * 收到终止信号的时间戳
+     * @var bool
+     */
+    private $_recvTerminateSignalTimestamp = null;
+
+    /**
      * Worker constructor.
      * @param $jobName
+     * @param bool $onDuty 进程是否值守
+     * @param int $masterPid 主进程id
      * @throws \Exception
      */
-    private function __construct($jobName)
+    private function __construct($jobName, $onDuty = true, $masterPid = 0)
     {
         $this->_jobName = $jobName;
+        $this->_onDuty = $onDuty;
+        $this->_masterPid = $masterPid;
+        $this->_checkMasterTimestamp = time();
 
         //获取worker配置
         $this->_conf = Config::read('', "worker");
@@ -71,15 +107,17 @@ class Worker
     }
 
     /**
-     * 获取定时任务服务
+     * 获取worker工作进程服务
      * @param string $jobName
+     * @param bool $onDuty 进程是否值守
+     * @param int $masterPid 主进程id
      * @return Worker
      * @throws \Exception
      */
-    public static function getInstance($jobName)
+    public static function getInstance($jobName, $onDuty = true, $masterPid = 0)
     {
         if (!isset(self::$_instance[$jobName])) {
-            self::$_instance[$jobName] = new Worker($jobName);
+            self::$_instance[$jobName] = new Worker($jobName, $onDuty, $masterPid);
         }
         return self::$_instance[$jobName];
     }
@@ -141,6 +179,23 @@ class Worker
                 break;
             }
 
+            //每10分钟检查主进程是否存活
+            if($this->_masterPid && ($currentTime - $this->_checkMasterTimestamp) > 600) {
+                //检查主进程心跳
+                if (!Process::kill($this->_masterPid, SIG_DFL)) {
+                    $this->_flgWorkerExit = true;
+                    Log::info("master shutdown,pid:".$pid." exit worker.");
+                    break;
+                }
+                $this->_checkMasterTimestamp = $currentTime;
+            }
+
+            //检测是否有新的信号等待dispatching。
+            pcntl_signal_dispatch();
+            if ($this->_flgWorkerExit) {
+                break;
+            }
+
             App::run();
             //处理任务
             $this->_doWorkerTask($this->_workerQueueName);
@@ -167,6 +222,13 @@ class Worker
                 //进程退出处理
                 $this->_flgWorkerExit = true;
                 Log::info("worker recv terminate signal. pid=" . $pid);
+                //收到信号16分钟后没退出，强制退出
+                if (!$this->_recvTerminateSignalTimestamp) {
+                    $this->_recvTerminateSignalTimestamp = time();
+                } elseif ((time() - $this->_checkMasterTimestamp) > 960) {
+                    Log::info("worker (jobName={$this->_jobName}) timeout exit,pid:".$pid." force to exit worker.");
+                    exit(0);
+                }
                 break;
         }
     }
@@ -183,6 +245,19 @@ class Worker
         try {
             $response = MessageServer::getInstance($this->_conf['driver'])->receive($workerMsgQueueName);
             if ($response === false) {
+                //进程不值守
+                if (!$this->_onDuty) {
+                    $maxFreeTime = isset($this->_workerConf['maxFreeTime'])?$this->_workerConf['maxFreeTime']:$this->_conf['maxfreetime'];
+                    if (!$this->_noReceiveMsgTimestamp) {
+                        $this->_noReceiveMsgTimestamp = time();
+                    } elseif((time() - $this->_noReceiveMsgTimestamp) > $maxFreeTime) {
+                        //标记出让的进程
+                        Redis::getInstance()->lPush('worker-exit-flag:' . $this->_jobName, 1, 6);
+                        //超过5分钟没有获取过消息，退出进程
+                        $this->_flgWorkerExit = true;
+                        Log::info("worker (jobName={$this->_jobName}) no message was retrieved for more than 5 minutes,pid:".$pid." exit worker.");
+                    }
+                }
                 //没有消息休眠1秒
                 sleep(1);
                 return;
@@ -195,7 +270,7 @@ class Worker
             $workerType = $workerMsg->getWorkerType();
             if (!isset($this->_conf['workers'][$workerType])) {
                 Log::error("invalid message, worker config not found. worker type={$workerType}");
-                MessageServer::getInstance($this->_conf['driver'])->delete($workerMsgQueueName, $response['msgBody']);
+//                MessageServer::getInstance($this->_conf['driver'])->delete($workerMsgQueueName, $response['msgBody']);
                 return;
             }
 

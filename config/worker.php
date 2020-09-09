@@ -16,6 +16,10 @@ return [
     "user"   => 'root',
     //任务名前缀
     "jobNamePrefix" => '',
+    //每个worker最大空闲时间（超过则退出，出让队列进程数，值守进程不受此限制）
+    "maxFreeTime" => 300,
+    //消息积压点（队列消息积压超过此值，将尝试逐步增加worker数量，不超过threadNum的值）
+    "msgBacklogPoint" => 180,
     //worker配置
     "workerConf" => [
 //      'jobName' => [
@@ -29,6 +33,10 @@ return [
 //    		"lifeTime" => 3600,
 //            //每个worker最大任务处理数，超过则重启
 //    		"maxHandleNum" =>  10000,
+//            //每个worker最大空闲时间（设置会覆盖服务设置的默认值，超过则退出，出让队列进程数，值守进程不受此限制）
+//          "maxFreeTime" => 300,
+//            //消息积压点（设置会覆盖服务设置的默认值，队列消息积压超过此值，将尝试逐步增加worker数量，不超过threadNum的值）
+//          "msgBacklogPoint" => 180,
 //       ],
         'defaultJob' => [
             'option' => [],
@@ -36,6 +44,7 @@ return [
             "threadNum" => 20,
             "lifeTime" => 3600,
             "maxHandleNum" => 10000,
+            "msgBacklogPoint" => 20,
         ],
 
     ],
@@ -48,6 +57,8 @@ return [
 //    		"handler"    => [SrvType::COMMON_TEST, 'test'],
 //            //任务描述信息
 //          "desc"  => '描述信息',
+//            //不重复消息（发送消息不允许重复）
+//          "msgUnique" => true,
 //    	],
     	WorkerTypes::COMMON_TEST  => [
     	    //任务名, 任务名相同则共用同一个消息队列
@@ -56,6 +67,8 @@ return [
     		"handler"    => [SrvType::COMMON_TEST, 'test'],
             //任务描述信息
             "desc"  => '描述信息',
+            //不重复消息（发送消息不允许重复）
+            "msgUnique" => true,
     	],
     ]
 ];

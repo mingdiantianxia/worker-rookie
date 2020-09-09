@@ -47,17 +47,21 @@ class MessageServer implements IMessageServer
     /**
      * 获取消息服务
      * @param string $driverName 驱动名
+     * @param bool $isFlush 强制重新连接
      * @return bool|MessageServer
-     * @throws \Exception
      */
-    public static function getInstance($driverName = 'redis')
+    public static function getInstance($driverName = 'redis', $isFlush = false)
     {
-        if (empty($driverName)) {
+        if (is_null($driverName)) {
             //驱动名
             $driverName = Config::read('mq_driver');
             if (empty($driverName)) {
                 return false;
             }
+        }
+
+        if (true == $isFlush) {
+            return new MessageServer($driverName);
         }
 
         if (!isset(self::$_instance[$driverName])) {
@@ -129,6 +133,25 @@ class MessageServer implements IMessageServer
     }
 
     /**
+     * 发送不重复消息
+     * @param string $queueName     - 队列名
+     * @param string $msgBody       - 消息内容
+     * @return bool 成功返回true, 失败返回false
+     * @throws \Exception
+     */
+    public function uniqueSend($queueName, $msgBody)
+    {
+        $res = $this->_driver->uniqueSend($queueName, $msgBody);
+        if ($res === 0 && !$this->_reconnect) {
+            self::clearInstance();
+            return self::getInstance()->setReconnect()->send($queueName, $msgBody);
+        } else {
+            $this->_reconnect = false;
+            return $res?$res:false;
+        }
+    }
+
+    /**
      * 获取消息
      * @param string $queueName     - 队列名
      * @param int $waitSeconds     - 无消息时阻塞等待时间
@@ -178,6 +201,27 @@ class MessageServer implements IMessageServer
     }
 
     /**
+     * 获取队列消息总数
+     * @param string $jobName
+     * @return bool|false|int
+     */
+    public function getQueueSize($jobName)
+    {
+        $res = $this->_driver->getQueueSize($jobName);
+        if (-1 === $res && !$this->_reconnect) {
+            self::clearInstance();
+            $res = self::getInstance()->setReconnect()->getQueueSize($jobName);
+            if (-1 === $res) {
+                return false;
+            }
+            return $res;
+        } else {
+            $this->_reconnect = false;
+            return $res;
+        }
+    }
+
+    /**
      * 把消息发送给指定的worker执行
      * @param string $workerType - worker type
      * @param array $params - 任务参数
@@ -187,15 +231,14 @@ class MessageServer implements IMessageServer
      */
     public function dispatch($workerType, array $params = [])
     {
+        try {
+            $workerConfig = Config::read("workers.{$workerType}", 'worker');
+        } catch (\Exception $e) {
+            throw new \Exception("worker config not found, workerType={$workerType}");
+        }
+
         //dev环境不走消息队列, 直接调用消息处理器
         if (Config::read("env") == 'dev') {
-            $workerConfig = null;
-            try {
-                $workerConfig = Config::read("workers.{$workerType}", 'worker');
-            } catch (\Exception $e) {
-                throw new \Exception("worker config not found, workerType={$workerType}");
-            }
-
             if (!isset($workerConfig['handler']) || empty($workerConfig['handler'])) {
                 throw new \Exception("worker config invalid, workerType={$workerType}");
             }
@@ -219,7 +262,15 @@ class MessageServer implements IMessageServer
         $msg = new WorkerMessage();
         $msg->setWorkerType($workerType);
         $msg->setParams($params);
-        $ret = $this->send($queueName, $msg->serialize());
+
+        if (isset($workerConfig['msgUnique']) && $workerConfig['msgUnique']) {
+            $msg->setTimestamp(1);
+            $msg->setId(1);
+            $ret = $this->uniqueSend($queueName, $msg->serialize());
+        } else {
+            $ret = $this->send($queueName, $msg->serialize());
+        }
+        unset($msg);
         if ($ret !== false) {
             return true;
         }

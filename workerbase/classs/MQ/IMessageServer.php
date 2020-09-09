@@ -56,6 +56,13 @@ interface IMessageServer
     public function delete($queueName, $token);
 
     /**
+     * 获取队列消息总数
+     * @param string $jobName
+     * @return bool|false|int
+     */
+    public function getQueueSize($jobName);
+
+    /**
      * 把消息发送给指定的worker执行
      * @param string $workerType - worker type
      * @param array $params - 任务参数

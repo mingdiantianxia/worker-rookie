@@ -1,5 +1,68 @@
-<?php 
-namespace workerbase\func;
+<?php
+//加载函数和类的助手函数
+/**
+* [loadf 加载函数]
+* @return [type] [description]
+*/
+function loadf() {
+    $arguments = func_get_args();//获取传给函数的参数（数组）
+    $name = array_shift($arguments);//弹出第一个参数，即函数名
+    if ($name == '') {
+        die('function name is empty!');
+    } else {
+        $call_exist = stripos($name, 'call:');//如果有call:字样，就直接返回函数名
+        if ($call_exist === 0) {
+           $callf = explode(':', $name);
+           $name = $callf[1];
+        }
+
+        $function = "workerbase\\func\\".$name;
+        if (!function_exists($function)) {
+            $func =  dirname(__FILE__).DIRECTORY_SEPARATOR.'func'.DIRECTORY_SEPARATOR. $name . '.php';
+
+            if (!is_file($func)) {
+                die(' function ' . $name . ' Not Found!');
+            }
+            require_once $func;
+        }
+
+        if ($call_exist === 0) {
+            return $function;
+        } else {
+            return  call_user_func_array ($function , $arguments);//调用函数，并传递参数
+        }
+    }
+}
+/*
+加载类
+*/
+function loadc() {
+    $arguments = func_get_args();//获取传给函数的参数（数组）
+    $name = array_shift($arguments);//弹出第一个参数，即类名
+    if ($name == '') {
+        die('class name is empty!');
+    }
+
+    $name = strtolower($name);
+    static $workerbase_modules = array();
+    if (isset($workerbase_modules[$name])) {
+        return $workerbase_modules[$name];
+    }
+
+    $class_name = "workerbase\\classs\\" . ucfirst($name);
+    if (!class_exists($class_name)) {
+        $class =  dirname(__FILE__).DIRECTORY_SEPARATOR.'classs'.DIRECTORY_SEPARATOR. $name . '.php';
+
+        if (!is_file($class)) {
+            die(' class ' . $name . ' Not Found!');
+        }
+        require_once $class;
+    }
+
+    $class_name = new \ReflectionClass($class_name);//反射类
+    $workerbase_modules[$name] = $class_name->newInstanceArgs($arguments);//传入参数
+    return $workerbase_modules[$name];
+}
 
 /**
  * [cliRun php命令执行]
@@ -13,11 +76,11 @@ namespace workerbase\func;
  */
 function cliRun($path, $namespace="\\", $suffix = '', $class_name = null, $func_name = null, $arguments = []) {
     global $argc,$argv;
-	$return_arr = array(
-				'code'=> -1,
-				'msg'=> 'false',
-				'data'=>''
-			);
+    $return_arr = array(
+        'code'=> -1,
+        'msg'=> 'false',
+        'data'=>''
+    );
     if (is_null($class_name) || is_null($func_name)) {
         $arguments_count = $argc;//参数数量
         if ($arguments_count < 3) {
@@ -50,12 +113,13 @@ function cliRun($path, $namespace="\\", $suffix = '', $class_name = null, $func_
         }
     }
 
+    $class_name_tmp = $class_name . $suffix;
     //带命名空间的类名
-    $class_name = $namespace . $class_name . $suffix;
+    $class_name = $namespace . $class_name_tmp;
 
     if (!class_exists($class_name)) {
         //加载类文件
-        $class_file =  $path . $class_name .'.php';
+        $class_file =  $path . $class_name_tmp .'.php';
         if (!is_file($class_file)) {
             $return_arr['msg'] = ' class file ' . $class_file . ' Not Found!';
             return $return_arr;

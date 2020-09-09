@@ -126,7 +126,6 @@ class Redis
      * @param array $options 连接参数
      * @param bool $isFlush 强制重新连接
      * @return Redis
-     * @throws \Exception
      */
     public static function getInstance($options = [], $isFlush = false)
     {
