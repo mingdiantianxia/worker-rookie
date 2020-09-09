@@ -117,7 +117,7 @@ class Redis
         $ret = $this->_redis->select($select);
 
         //序列化
-        $this->_redis->setOption(\Redis::OPT_SERIALIZER, \Redis::SERIALIZER_PHP);
+//        $this->_redis->setOption(\Redis::OPT_SERIALIZER, \Redis::SERIALIZER_PHP);
         return $ret;
     }
 
@@ -189,7 +189,7 @@ class Redis
         }
 
         //序列化
-        $redis->setOption(\Redis::OPT_SERIALIZER, \Redis::SERIALIZER_PHP);
+//        $redis->setOption(\Redis::OPT_SERIALIZER, \Redis::SERIALIZER_PHP);
         $redis->select($db_table);
 
         $redis_table_instance[$db_table] = $redis;

@@ -136,7 +136,15 @@ class WorkerMessage
         }
         $data = json_decode($srcData, true);
         if (empty($data)) {
-            throw new WorkerMessageInvalidException("WorkerMessage invalid. data={$srcData}");
+            if (JSON_ERROR_SYNTAX == json_last_error()) {
+                $jsonData = @unserialize($srcData);
+                $data = json_decode($jsonData, true);
+                if (empty($data)) {
+                    throw new WorkerMessageInvalidException("WorkerMessage invalid. data={$srcData}");
+                }
+            } else {
+                throw new WorkerMessageInvalidException("WorkerMessage invalid. data={$srcData}");
+            }
         }
         if (!isset($data['workerType']) || !isset($data['params'])) {
             throw new WorkerMessageInvalidException("WorkerMessage invalid. data={$srcData}");

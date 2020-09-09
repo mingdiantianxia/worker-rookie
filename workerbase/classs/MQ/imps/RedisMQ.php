@@ -130,7 +130,12 @@ class RedisMQ extends BaseMQ implements IMQ
                     return 0
                 end
             ';
-            $res = $this->_client->getOriginInstance()->eval($script, [$queueName, $msgBody, 0], 1);
+            if ($this->_client->getOriginInstance()->getOption(\Redis::OPT_SERIALIZER)) {
+                $argv = serialize($msgBody);
+            } else {
+                $argv = $msgBody;
+            }
+            $res = $this->_client->getOriginInstance()->eval($script, [$queueName, $argv, 0], 1);
             if (!$res) {
                 Log::error("send unique message failure. queue={$queueName}");
                 return false;
@@ -169,7 +174,7 @@ class RedisMQ extends BaseMQ implements IMQ
             }
 
             if (!$msgBody) {
-                if (in_array(Config::get('env_flag'), ['dev', 'local_debug'])) { //没有消息
+                if (in_array(Config::read('env_flag'), ['dev', 'local_debug'])) { //没有消息
                     Log::info("receive message failure. queue={$queueName}");
                 }
                 return false;
@@ -190,11 +195,18 @@ class RedisMQ extends BaseMQ implements IMQ
                     return 0
                 end
             ';
-            $res = $this->_client->getOriginInstance()->eval($script, [$queueName.'-bak', $msgBody, $newMsgBody], 1);
+            if ($this->_client->getOriginInstance()->getOption(\Redis::OPT_SERIALIZER)) {
+                $argv1 = serialize($msgBody);
+                $argv2 = serialize($newMsgBody);
+            } else {
+                $argv1 = $msgBody;
+                $argv2 = $newMsgBody;
+            }
+            $res = $this->_client->getOriginInstance()->eval($script, [$queueName.'-bak', $argv1, $argv2], 1);
             if (!$res) {
                 //备份队列替换失败，休息100毫秒再尝试替换
                 usleep(100*1000);
-                $res = $this->_client->getOriginInstance()->eval($script, [$queueName.'-bak', $msgBody, $newMsgBody], 1);
+                $res = $this->_client->getOriginInstance()->eval($script, [$queueName.'-bak', $argv1, $argv2], 1);
             }
             if ($res) {
                 $msgBody = $newMsgBody;
