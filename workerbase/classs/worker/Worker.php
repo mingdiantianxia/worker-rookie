@@ -292,7 +292,13 @@ class Worker
                 Log::debug("worker execute message handler=" . json_encode($hander) . ", msg={$response['msgBody']}");
             }
 
+            $s = microtime(true);
+
             $ret = call_user_func_array([$srvObj, $hander[1]], $workerMsg->getParams());
+
+            if (in_array(WK_ENV, ['dev', 'local_debug'])) {
+                $this->_log('workerType:'.$workerType.',use time:'.(microtime(true) - $s));
+            }
 
             if (in_array(WK_ENV, ['dev', 'local_debug'])) {
                 Log::debug("worker execute message handler result=" . json_encode($ret) .", msg={$response['msgBody']}");
@@ -304,7 +310,8 @@ class Worker
                 $res = MessageServer::getInstance($this->_conf['driver'])->delete($workerMsgQueueName, $response['msgBody']);
                 if (in_array(WK_ENV, ['dev', 'local_debug'])) {
                     Log::debug("finish task delete message. response=".json_encode($response).',result='.json_encode($res));
-                }            }
+                }
+            }
 
         } catch (WorkerMessageInvalidException $e) {
             //消息格式不正确

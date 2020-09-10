@@ -29,6 +29,9 @@ loadc('Loader')->run();
 //初始化当前系统环境
 define('WK_ENV',  Config::read('env'));
 
+//定义cron环境
+define('IS_WK_CRON', true);
+
 // 注册错误和异常处理机制
 Error::register();
 App::run();
