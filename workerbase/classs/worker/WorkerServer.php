@@ -437,11 +437,11 @@ class WorkerServer
         if (!$this->_isReload) {
             return;
         }
+        $this->_isReload = false;
 
         //重载配置，重新部署子进程
         //执行外部命令，重载配置
         $workerProcess = new Process(function (Process $worker) {
-            var_dump(Config::read("phpbin"), Config::read("cmd", 'cron'));
             $worker->exec(
                 Config::read("phpbin"),
                 [
@@ -459,17 +459,20 @@ class WorkerServer
         }
         //注册worker
         $this->_addWorker('ReloadSetWorkerConfig', $pid);
+
+        sleep(1);
         //初始化配置参数
         $getCofig = new ConfigStorage();
         $cronConfg = $getCofig->getConfig('worker');
         unset($getCofig);
 
-        var_dump($cronConfg);
         if (!empty($cronConfg)) {
             $this->_conf = $cronConfg;
         }
+        var_dump($cronConfg);
 
         //重新计算配置的总进程数
+        $this->_workerConfigThreadNum = 0;
         foreach ($this->_conf['workerConf'] as $conf) {
             $this->_workerConfigThreadNum += $conf['threadNum'];
         }
@@ -485,7 +488,6 @@ class WorkerServer
                 Process::kill($pid, SIGTERM);
             }
         }
-        $this->_isReload = false;
     }
 
     /**

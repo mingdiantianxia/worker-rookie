@@ -8,8 +8,8 @@ use system\services\SrvType;
  * defaultJob - 默认任务队列，主要处理一些小任务
  */
 return [
-    "pid" => WORKER_PROJECT_PATH .'/runtime/log/workerlog/workerServer.pid',
-    "log" => WORKER_PROJECT_PATH .'/runtime/log/workerlog/workerServer.log',
+    "pid" => WORKER_PROJECT_PATH .'runtime/log/workerlog/workerServer.pid',
+    "log" => WORKER_PROJECT_PATH .'runtime/log/workerlog/workerServer.log',
     //队列驱动名
     "driver" => "redis",
     //进程运行角色
@@ -64,7 +64,7 @@ return [
     	    //任务名, 任务名相同则共用同一个消息队列
     		"jobName" => "defaultJob",
             //任务处理器, 格式[SrvType, '方法名']
-    		"handler"    => [SrvType::COMMON_TEST, 'test2'],
+    		"handler"    => [SrvType::COMMON_TEST, 'test'],
             //任务描述信息
             "desc"  => '描述信息',
             //不重复消息（发送消息不允许重复）

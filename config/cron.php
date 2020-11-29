@@ -11,10 +11,10 @@ return [
         //后缀
         'suffix' => 'Command',
     ],
-    "pid" => WORKER_PROJECT_PATH .'/runtime/log/workerlog/crond.pid',
-    "log" => WORKER_PROJECT_PATH .'/runtime/log/workerlog/crond.log',
+    "pid" => WORKER_PROJECT_PATH .'runtime/log/workerlog/crond.pid',
+    "log" => WORKER_PROJECT_PATH .'runtime/log/workerlog/crond.log',
     //本地任务命令路径
-    "cmd" => WORKER_PROJECT_PATH .'/scripts/cmd',
+    "cmd" => WORKER_PROJECT_PATH .'scripts/cmd',
     //进程运行角色
     "user"   => 'root',
     //定时任务执行模式 c协程模式，p进程模式
