@@ -15,6 +15,7 @@ class SrvType
 {
     /**
      * 测试业务
+     * @var \system\services\common\test\Test
      */
     const COMMON_TEST = 'common.test.Test';
 }

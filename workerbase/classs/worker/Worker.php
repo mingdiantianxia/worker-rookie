@@ -129,10 +129,13 @@ class Worker
     {
         set_time_limit(0);
         ini_set('default_socket_timeout', -1);
-        ini_set('memory_limit', -1);
+        ini_set('memory_limit', '2048M');
 
         //设置用户组
         $userName = $this->_conf['user'];
+        if (posix_getuid() == 'root') {
+            $userName = 'root';
+        }
         $userInfo = posix_getpwnam($userName);
         if (empty($userInfo)) {
             Log::error("start worker failure, get userinfo failure. user={$userName}");
@@ -247,7 +250,7 @@ class Worker
             if ($response === false) {
                 //进程不值守
                 if (!$this->_onDuty) {
-                    $maxFreeTime = isset($this->_workerConf['maxFreeTime'])?$this->_workerConf['maxFreeTime']:$this->_conf['maxfreetime'];
+                    $maxFreeTime = isset($this->_workerConf['maxFreeTime'])?$this->_workerConf['maxFreeTime']:$this->_conf['maxFreeTime'];
                     if (!$this->_noReceiveMsgTimestamp) {
                         $this->_noReceiveMsgTimestamp = time();
                     } elseif((time() - $this->_noReceiveMsgTimestamp) > $maxFreeTime) {

@@ -174,7 +174,7 @@ class RedisMQ extends BaseMQ implements IMQ
             }
 
             if (!$msgBody) {
-                if (in_array(Config::read('env_flag'), ['dev', 'local_debug'])) { //没有消息
+                if (in_array(Config::read('env'), ['dev', 'local_debug'])) { //没有消息
                     Log::info("receive message failure. queue={$queueName}");
                 }
                 return false;

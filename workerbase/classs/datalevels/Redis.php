@@ -472,7 +472,7 @@ class Redis
     /**
      * hash表操作 - 批量设置hash字段值
      * @param string $key
-     * @param array $fields         -   hash字段数组， 例：array('uid' => 1, 'name' => 'lewaimai')
+     * @param array $fields         -   hash字段数组， 例：array('uid' => 1, 'name' => 'woker')
      * @param int $expire             -   过期时间，单位秒
      * @return bool 成功返回true
      */

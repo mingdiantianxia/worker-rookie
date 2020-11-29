@@ -2,6 +2,7 @@
 namespace apps\console;
 use workerbase\classs\Config;
 use workerbase\classs\ConfigStorage;
+use workerbase\classs\Log;
 
 
 /**
@@ -21,6 +22,8 @@ class CronWorkerConfigCommand
     //加载worker配置
     public function setWorkerConfig()
     {
+        Log::error('进来了');
+        Log::error(var_export(Config::read('', 'worker'), true));
         $getCofig = new ConfigStorage();
         $getCofig->setConfig('worker', Config::read('', 'worker'));
         unset($getCofig);

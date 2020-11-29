@@ -18,6 +18,7 @@ define('WK_APP_ID', "worker");
 //定义项目根目录
 define('WORKER_PROJECT_PATH',  __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR);
 
+require_once WORKER_PROJECT_PATH.'workerbase/classs/worker/signalDefine.php';
 require_once WORKER_PROJECT_PATH.'workerbase/helper.php';
 require_once WORKER_PROJECT_PATH.'workerbase/vendor/autoload.php';
 

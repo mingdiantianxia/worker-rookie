@@ -16,7 +16,7 @@ class TestCommand
     {
         $num = 3;
         while ($num--) {
-            $res = MessageServer::getInstance()->dispatch(WorkerTypes::COMMON_TEST, ['hello good']);
+            $res = MessageServer::getInstance()->dispatch(WorkerTypes::COMMON_TEST, [microtime()]);
 //            if ($res) {
 //                var_dump('worker队列发送成功1');
 //            }

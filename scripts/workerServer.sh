@@ -168,6 +168,11 @@ restart() {
     fi
 }
 
+#重载配置，停止所有子进程（重新拉起新的子进程）
+reload() {
+	return 0
+}
+
 #检测workerServer进程是否存在
 check_worker_exist() {
     if [ ! -f "$pidPath" ]; then
@@ -234,7 +239,10 @@ stop)
 restart)
     restart `echo $*|xargs -n 1|grep -v $1`
     ;;
+reload)
+    reload
+    ;;
 *)
-    echo "Usage: workerServer.sh {start|stop|restart|help}"
+    echo "Usage: workerServer.sh {start|stop|restart|reload|help}"
     exit 1
 esac
