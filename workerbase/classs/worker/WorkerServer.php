@@ -85,12 +85,6 @@ class WorkerServer
      */
     private $_workerTypeToCaptainPid = [];
 
-    /**
-     * 是否重载配置和子进程
-     * @var bool
-     */
-    private $_isReload = false;
-
     private function __construct()
     {
         $this->_log("start worker server...");
@@ -106,7 +100,6 @@ class WorkerServer
         //masker进程注册相关信号处理
         Process::signal(SIGCHLD, [$this, 'doSignal']);
         Process::signal(SIGTERM, [$this, 'doSignal']);
-        Process::signal(SIGRTMIN, [$this, 'doSignal']);
 
         //根据 -d 参数确认是否后台运行
         $options = getopt('d');
@@ -205,9 +198,6 @@ class WorkerServer
      */
     public function startWorker()
     {
-        //重载配置
-        $this->_reloadWorker();
-
         $workersConf = $this->_conf['workerConf'];
         if (empty($workersConf)) {
             $this->_killMaster();
@@ -391,10 +381,6 @@ class WorkerServer
                     exit(0);
                 }
                 break;
-            case SIGRTMIN:
-                //重载配置，重新部署子进程
-                $this->_isReload = true;
-                break;
         }
     }
 
@@ -425,67 +411,6 @@ class WorkerServer
             } catch (\Exception $e) {
                 //nothing to do
                 Log::error($e->getMessage());
-            }
-        }
-    }
-
-    /**
-     * 重载配置，重新部署子进程
-     */
-    private function _reloadWorker()
-    {
-        if (!$this->_isReload) {
-            return;
-        }
-        $this->_isReload = false;
-
-        //重载配置，重新部署子进程
-        //执行外部命令，重载配置
-        $workerProcess = new Process(function (Process $worker) {
-            $worker->exec(
-                Config::read("phpbin"),
-                [
-                    Config::read("cmd", 'cron'),
-                    'CronWorkerConfig',
-                    'setWorkerConfig'
-                ]
-            );
-        }, false, 0);
-
-        $pid = $workerProcess->start();
-        if ($pid === false) {
-            $this->_log("reload worker failure.");
-            return;
-        }
-        //注册worker
-        $this->_addWorker('ReloadSetWorkerConfig', $pid);
-
-        sleep(1);
-        //初始化配置参数
-        $getCofig = new ConfigStorage();
-        $cronConfg = $getCofig->getConfig('worker');
-        unset($getCofig);
-
-        if (!empty($cronConfg)) {
-            $this->_conf = $cronConfg;
-        }
-        var_dump($cronConfg);
-
-        //重新计算配置的总进程数
-        $this->_workerConfigThreadNum = 0;
-        foreach ($this->_conf['workerConf'] as $conf) {
-            $this->_workerConfigThreadNum += $conf['threadNum'];
-        }
-
-        //清除队列服务初始化完成标记，重新初始化资源配置
-        $this->_hasInit = false;
-        $this->_reallocateTimestamp = null;
-
-        //退出所有子进程
-        if (!empty($this->_pidMapToWorkerType)) {
-            foreach (array_keys($this->_pidMapToWorkerType) as $pid) {
-                //发送一个退出信号
-                Process::kill($pid, SIGTERM);
             }
         }
     }

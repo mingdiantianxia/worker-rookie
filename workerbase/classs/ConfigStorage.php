@@ -41,7 +41,7 @@ class ConfigStorage
      * @param $expire -有效期（秒）
      * @return bool
      */
-    public function setConfig($type, $value, $expire = 20)
+    public function setConfig($type, $value, $expire = 30)
     {
         return $this->_redis->set(self::WK_CONFIG_STORAGE_KEY . ':' . $type, json_encode($value), $expire);
     }

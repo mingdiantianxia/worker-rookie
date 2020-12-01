@@ -1,6 +1,7 @@
 <?php
 namespace workerbase\classs\MQ;
 
+use workerbase\classs\Config;
 use workerbase\classs\Log;
 
 /**
@@ -25,17 +26,17 @@ abstract class BaseMQ
         }
 
         if (empty($env)) {
-            $env = loadc('config')->get("env");
+            $env = Config::read('env');
         }
 
         //获取worker配置
-        $config = loadc('config')->get("workers.{$workerType}", 'worker');
+        $config = Config::read("workers.{$workerType}", 'worker');
         if (empty($config)) {
             Log::error("worker config not found. workerType={$workerType}");
             return false;
         }
 
-        $prefix = loadc('config')->get('jobNamePrefix', 'worker');
+        $prefix = Config::read('jobNamePrefix', 'worker');
         $name = $this->_mqPrefix . "{$env}-Worker-{$prefix}{$config['jobName']}";
         return $name;
     }
@@ -49,9 +50,9 @@ abstract class BaseMQ
     public function getQueueNameByJobName($jobName, $env = '')
     {
         if (empty($env)) {
-            $env = loadc('config')->get("env");
+            $env = Config::read('env');
         }
-        $prefix = loadc('config')->get('jobNamePrefix', 'worker');
+        $prefix = Config::read('jobNamePrefix', 'worker');
         $name = $this->_mqPrefix . "{$env}-Worker-{$prefix}{$jobName}";
         return $name;
     }
