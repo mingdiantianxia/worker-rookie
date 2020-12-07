@@ -85,10 +85,20 @@ class WorkerServer
      */
     private $_workerTypeToCaptainPid = [];
 
+    /**
+     * 是否重载配置和子进程
+     * @var bool
+     */
+    private $_isReload = false;
+
     private function __construct()
     {
         $this->_log("start worker server...");
-        $this->_conf = Config::read("", "worker");
+        $this->_conf = $this->_getWorkerConf();
+        if (!$this->_conf) {
+            $this->_log("start workerServer failure, get worker config failure");
+            $this->_killMaster();
+        }
 
         //关闭协程，采用异步进程(必须放在服务初始化最前面)
         if (version_compare(swoole_version(), '4.0.1', '>=')) {
@@ -100,6 +110,7 @@ class WorkerServer
         //masker进程注册相关信号处理
         Process::signal(SIGCHLD, [$this, 'doSignal']);
         Process::signal(SIGTERM, [$this, 'doSignal']);
+        Process::signal(SIGUSR1, [$this, 'doSignal']);
 
         //根据 -d 参数确认是否后台运行
         $options = getopt('d');
@@ -198,6 +209,9 @@ class WorkerServer
      */
     public function startWorker()
     {
+        //重载配置
+        $this->_reloadWorker();
+
         $workersConf = $this->_conf['workerConf'];
         if (empty($workersConf)) {
             $this->_killMaster();
@@ -283,17 +297,25 @@ class WorkerServer
             //启动worker
             for ($i=0; $i < $hasWorkers; $i++) {
                 //是否是队长进程
-                $isFirst = false;
+                $isFirst = 0;
                 if (!isset($this->_workerTypeToCaptainPid[$jobName])) {
                     //队长进程值守
-                    $isFirst = true;
+                    $isFirst = 1;
                 }
                 $workerProcess = new Process(function (Process $worker) use ($jobName, $isFirst, $masterPid) {
                     if (in_array(WK_ENV, ['dev', 'local_debug'])) {
                         $this->_log("start worker, jobName={$jobName}, pid={$worker->pid}");
                     }
-                    //直接执行，处理队列
-                    Worker::getInstance($jobName, $isFirst, $masterPid)->run();
+                    if (isset($this->_conf['jobReload']) && $this->_conf['jobReload']) {
+                        //外面命令执行，热重载
+                        $worker->exec(
+                            Config::read("phpbin"),
+                            ['worker.php', '-t', $jobName, '-k', $isFirst, '-p', $masterPid]
+                        );
+                    } else {
+                        //直接执行，处理队列
+                        Worker::getInstance($jobName, $isFirst, $masterPid)->run();
+                    }
                 }, false, 0);
 
                 $pid = $workerProcess->start();
@@ -332,6 +354,10 @@ class WorkerServer
                 }
 
                 if ($this->_masterProcessExit && $this->_getTotalWorkers() == 0) {
+                    if ($this->_monitorTimerId) {
+                        Timer::clear($this->_monitorTimerId);
+                        $this->_monitorTimerId = null;
+                    }
                     $this->_log("worker server shutdown...");
                     //当子进程都退出后，结束masker进程
                     @unlink($this->_conf['pid']);
@@ -350,38 +376,93 @@ class WorkerServer
                 if (!$this->_masterProcessExit) {
                     $this->_masterProcessExit = time();
                 }
-                if (!empty($this->_pidMapToWorkerType)) {
-                    $runningTime = time() - $this->_masterProcessExit;
-                    foreach (array_keys($this->_pidMapToWorkerType) as $pid) {
-                        try{
-                            if ($runningTime > 1200) { //超过20分钟
-                                Log::error("exit the timeout,pid:".$pid." force exit worker.");
-                                //超过生存时间20分钟，强制退出
-                                Process::kill($pid, SIGKILL);
-                            }
-                            else {
-                                //发送一个退出信号
-                                Process::kill($pid, SIGTERM);
-                            }
-                            //检查子进程心跳
-                            if (!Process::kill($pid, SIG_DFL)) {
-                                if ($this->_delWorkerByPid($pid)) {
-                                    $this->_log("回收进程资源2, pid={$pid}");
+                //注册定时器，每秒检查子进程退出情况
+                $this->_monitorTimerId = Timer::tick(1000, function () {
+                    if (!empty($this->_pidMapToWorkerType)) {
+                        $runningTime = time() - $this->_masterProcessExit;
+                        foreach (array_keys($this->_pidMapToWorkerType) as $pid) {
+                            try{
+                                if ($runningTime > 10) { //超过20分钟
+                                    Log::error("exit the timeout,pid:".$pid." force exit worker.");
+                                    //超过生存时间20分钟，强制退出
+                                    Process::kill($pid, SIGKILL);
                                 }
+                                else {
+                                    //发送一个退出信号
+                                    Process::kill($pid, SIGTERM);
+                                }
+                                //检查子进程心跳
+                                if (!Process::kill($pid, SIG_DFL)) {
+                                    if ($this->_delWorkerByPid($pid)) {
+                                        $this->_log("回收进程资源2, pid={$pid}");
+                                    }
+                                }
+                            } catch (\Exception $e) {
+                                //nothing to do
+                                Log::error($e->getMessage());
                             }
-                        } catch (\Exception $e) {
-                            //nothing to do
-                            Log::error($e->getMessage());
                         }
+                    } elseif ($this->_getTotalWorkers() == 0) {
+                        if ($this->_monitorTimerId) {
+                            Timer::clear($this->_monitorTimerId);
+                            $this->_monitorTimerId = null;
+                        }
+                        $this->_log("worker server shutdown...");
+                        //当子进程都退出后，结束masker进程
+                        @unlink($this->_conf['pid']);
+                        exit(0);
                     }
-                } elseif ($this->_getTotalWorkers() == 0) {
-                    $this->_log("worker server shutdown...");
-                    //当子进程都退出后，结束masker进程
-                    @unlink($this->_conf['pid']);
-                    exit(0);
+                });
+                break;
+            case SIGUSR1:
+                $this->_log("recv reload signal, reload task worker.");
+                //重载配置，重新部署子进程
+                if (isset($this->_conf['jobReload']) && $this->_conf['jobReload']) {
+                    $this->_isReload = true;
+                } else {
+                    $this->_log("current mode is not supported reload worker");
                 }
                 break;
         }
+    }
+
+
+    /**
+     * 获取worker配置
+     */
+    private function _getWorkerConf()
+    {
+        //执行外部命令，重载配置
+        $workerProcess = new Process(function (Process $worker) {
+            $worker->exec(
+                Config::read("phpbin"),
+                [
+                    Config::read("cmd", 'cron'),
+                    'CronWorkerConfig',
+                    'setWorkerConfig'
+                ]
+            );
+        }, false, 0);
+
+        $pid = $workerProcess->start();
+        if ($pid === false) {
+            $this->_log("get worker config failure.");
+            return;
+        }
+
+        //初始化配置参数
+        $workerConfg = [];
+        $getCofig = new ConfigStorage();
+        $num = 60;
+        while ($num--) {
+            sleep(1);
+            $workerConfg = $getCofig->getConfig('worker');
+            if (!empty($workerConfg)) {
+                break;
+            }
+        }
+
+        return $workerConfg;
     }
 
     /**
@@ -411,6 +492,51 @@ class WorkerServer
             } catch (\Exception $e) {
                 //nothing to do
                 Log::error($e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * 重载配置，重新部署子进程
+     */
+    private function _reloadWorker()
+    {
+        if (!$this->_isReload) {
+            return;
+        }
+        $this->_isReload = false;
+
+        //重载配置，重新部署子进程
+        $workerConfg = $this->_getWorkerConf();
+
+        if (!$workerConfg) {
+            $this->_log("reload worker failure.");
+            return;
+        }
+
+        $this->_conf = $workerConfg;
+
+        //重新计算配置的总进程数
+        $this->_workerConfigThreadNum = 0;
+        foreach ($this->_conf['workerConf'] as $conf) {
+            $this->_workerConfigThreadNum += $conf['threadNum'];
+        }
+
+        //清除队列服务初始化完成标记，重新初始化资源配置
+        $this->_hasInit = false;
+        $this->_reallocateTimestamp = null;
+
+        //退出所有子进程
+        if (!empty($this->_pidMapToWorkerType)) {
+            foreach (array_keys($this->_pidMapToWorkerType) as $pid) {
+                //发送一个退出信号
+                try{
+                    Process::kill($pid, SIGTERM);
+                } catch (\Exception $e) {
+                    //nothing to do
+                } catch (\Error $e) {
+                    //nothing to do
+                }
             }
         }
     }
@@ -519,6 +645,9 @@ class WorkerServer
         return $total;
     }
 
+    /**
+     * 退出主进程
+     */
     private function _killMaster()
     {
         Process::kill(posix_getpid(), SIGTERM);

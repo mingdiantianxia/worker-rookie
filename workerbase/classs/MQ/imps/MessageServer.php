@@ -54,7 +54,7 @@ class MessageServer implements IMessageServer
     {
         if (is_null($driverName)) {
             //驱动名
-            $driverName = Config::read('mq_driver');
+            $driverName = Config::read('driver', 'worker');
             if (empty($driverName)) {
                 return false;
             }

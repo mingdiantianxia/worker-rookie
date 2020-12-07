@@ -20,6 +20,8 @@ return [
     "maxFreeTime" => 300,
     //消息积压点（队列消息积压超过此值，将尝试逐步增加worker数量，不超过threadNum的值）
     "msgBacklogPoint" => 180,
+    //是否支持工作进程重载（可接受reload命令重载工作进程，工作子进程会独立为外部命令进程，不再与主进程有共享内存，会重载代码文件，占用更多内存）
+    "jobReload" => true,
     //worker配置
     "workerConf" => [
 //      'jobName' => [
@@ -64,7 +66,7 @@ return [
     	    //任务名, 任务名相同则共用同一个消息队列
     		"jobName" => "defaultJob",
             //任务处理器, 格式[SrvType, '方法名']
-    		"handler"    => [SrvType::COMMON_TEST, 'test'],
+    		"handler"    => [SrvType::COMMON_TEST, 'test2'],
             //任务描述信息
             "desc"  => '描述信息',
             //不重复消息（发送消息不允许重复）

@@ -111,7 +111,7 @@ class Error
     {
         $env = Config::getInstance()->get('env');
         // 收集异常数据
-        if (in_array($env, ['dev', 'test'])) {
+        if (in_array($env, ['dev', 'test', 'local_debug'])) {
             $data = [
                 'file'    => $e->getFile(),
                 'line'    => $e->getLine(),

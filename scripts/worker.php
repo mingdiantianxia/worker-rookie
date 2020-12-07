@@ -35,11 +35,25 @@ define('IS_WK_WORKER', true);
 Error::register();
 App::run();
 
-$options = getopt('t:');
+$options = getopt('t:k:p:');
 if (!isset($options['t']) || empty($options['t'])) {
     echo "invalid params.";
     exit();
 }
 
+//队列工作名
 $jobName = $options['t'];
-\workerbase\classs\worker\Worker::getInstance($jobName)->run();
+
+//进程是否值守
+$onDuty = true;
+if (isset($options['k']) && !$options['k']) {
+    $onDuty = false;
+}
+
+//主进程id
+$masterPid = 0;
+if (isset($options['p']) && $options['p']) {
+    $masterPid = $options['p'];
+}
+
+\workerbase\classs\worker\Worker::getInstance($jobName, $onDuty, $masterPid)->run();

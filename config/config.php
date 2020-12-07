@@ -1,4 +1,4 @@
-<?php 
+<?php
 return [
     'env' => 'prod',//环境名 local_debug本地调试，dev开发，test测试，prod正式
 
@@ -13,9 +13,9 @@ return [
     'db'=> [
         'database_type' => 'mysql',
         'database_name' => 'test',
-        'server' => '192.168.43.149',
+        'server' => '172.18.1.127',
         'username' => 'root',
-        'password' => '123456',
+        'password' => '',
         'charset' => 'utf8',
         // 可选参数
         'port' => 3306,
@@ -25,20 +25,17 @@ return [
 
     'redis' => [
             //redis服务器地址
-            'host'  => '192.168.43.149',
+            'host'  => '172.18.1.127',
             //redis端口
             'port'  => '6379',
             //redis密码
-            'password' => '123456',
+            'password' => '',
             'select' => 1,
             //连接超时
             'timeout' => 10,
             //持久链接
             'persistent' => true,
     ],
-
-    //队列驱动名
-    'mq_driver' => 'redis',
 
     //php命令路径
     "phpbin" => "/usr/local/php/bin/php",

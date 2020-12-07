@@ -168,6 +168,34 @@ restart() {
     fi
 }
 
+#重载worker工作进程，配置文件必须开启支持
+reload() {
+    check_mystop_exist
+    stopIsExist=$?
+    if [ $stopIsExist -eq 1 ];then
+        echo "workerServer server is being stopped..."
+        exit 1
+    fi
+
+    if [ -f "$pidPath" ]; then
+        pid=`cat $pidPath`
+        echo "reload task worker"
+
+        check_worker_exist
+        pidIsExits=$?
+        if [ $pidIsExits -eq 1 ]; then
+            #发送子进程重载信号
+            kill -10 $pid
+        else
+            echo "worker server not exist."
+            rm -f $pidPath
+        fi
+    else
+        echo "worker server not exist."
+    fi
+	return 0
+}
+
 #检测workerServer进程是否存在
 check_worker_exist() {
     if [ ! -f "$pidPath" ]; then
@@ -234,7 +262,10 @@ stop)
 restart)
     restart `echo $*|xargs -n 1|grep -v $1`
     ;;
+reload)
+    reload
+    ;;
 *)
-    echo "Usage: workerServer.sh {start|stop|restart|help}"
+    echo "Usage: workerServer.sh {start|stop|restart|reload|help}"
     exit 1
 esac
