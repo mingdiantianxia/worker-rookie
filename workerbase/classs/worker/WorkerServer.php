@@ -185,7 +185,7 @@ class WorkerServer
         $this->startWorker();
 
         //监控worker进程 (5分钟后触发回调函数)
-        Timer::after(1000, function () {
+        Timer::after(5*60*1000, function () {
             //每秒执行一次worker
             $this->_monitorTimerId = Timer::tick(1000, function () {
                 $this->startWorker();
