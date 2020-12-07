@@ -66,7 +66,7 @@ return [
     	    //任务名, 任务名相同则共用同一个消息队列
     		"jobName" => "defaultJob",
             //任务处理器, 格式[SrvType, '方法名']
-    		"handler"    => [SrvType::COMMON_TEST, 'test2'],
+    		"handler"    => [SrvType::COMMON_TEST, 'test'],
             //任务描述信息
             "desc"  => '描述信息',
             //不重复消息（发送消息不允许重复）
