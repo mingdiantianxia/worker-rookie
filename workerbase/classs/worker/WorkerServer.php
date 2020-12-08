@@ -382,7 +382,7 @@ class WorkerServer
                         $runningTime = time() - $this->_masterProcessExit;
                         foreach (array_keys($this->_pidMapToWorkerType) as $pid) {
                             try{
-                                if ($runningTime > 10) { //超过20分钟
+                                if ($runningTime > 1200) { //超过20分钟
                                     Log::error("exit the timeout,pid:".$pid." force exit worker.");
                                     //超过生存时间20分钟，强制退出
                                     Process::kill($pid, SIGKILL);
