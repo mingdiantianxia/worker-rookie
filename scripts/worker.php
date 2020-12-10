@@ -38,7 +38,7 @@ App::run();
 $options = getopt('t:k:p:');
 if (!isset($options['t']) || empty($options['t'])) {
     echo "invalid params.";
-    exit();
+    exit(0);
 }
 
 //队列工作名
