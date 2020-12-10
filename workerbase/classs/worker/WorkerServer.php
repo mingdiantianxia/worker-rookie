@@ -363,7 +363,7 @@ class WorkerServer
 
                 if ($this->_masterProcessExit && $this->_getTotalWorkers() == 0) {
                     if ($this->_monitorTimerId) {
-                        Timer::clear($this->_monitorTimerId);
+                        Timer::clearAll();
                         $this->_monitorTimerId = null;
                     }
                     $this->_log("worker server shutdown...");
@@ -677,7 +677,7 @@ class WorkerServer
             }
         } elseif ($this->_getTotalWorkers() == 0) {
             if ($this->_monitorTimerId) {
-                Timer::clear($this->_monitorTimerId);
+                Timer::clearAll();
                 $this->_monitorTimerId = null;
             }
             $this->_log("worker server shutdown...");
