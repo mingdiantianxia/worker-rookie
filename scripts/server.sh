@@ -22,7 +22,7 @@ stop() {
             kill $cronPid
         else
             echo "crond server not exist."
-            rm -f $cronPidPath
+            #rm -f $cronPidPath
         fi
      fi
 
@@ -36,7 +36,7 @@ stop() {
              kill $workerPid
          else
              echo "worker server not exist."
-             rm -f $workerPidPath
+             #rm -f $workerPidPath
          fi
      fi
 

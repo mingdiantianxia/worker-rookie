@@ -47,7 +47,7 @@ stop() {
             kill $pid
         else
             echo "worker server not exist."
-            rm -f $pidPath
+            #rm -f $pidPath
         fi
 
         waitTime=60
@@ -97,7 +97,7 @@ stop() {
 		    if [ $hasT -eq 0 ] && [ $TValue -gt 0 ];then
 		        ps -eaf |grep "workerServer.php" | grep -v "grep"| awk '{print $2}'|xargs kill -9
 		        isFalse=0
-                rm -f $pidPath
+                #rm -f $pidPath
 		        echo "stop workerServer ok2."
 		    else
                 echo "stop timeout failed."
@@ -129,8 +129,8 @@ start() {
         #杀死所有残留的子进程
         #ps -eaf |grep "workerServer.php" | grep -v "grep"| awk '{print $2}'|xargs kill > /dev/null 2>&1
         echo "start workerServer server..."
-        threadNum=`availableThreadNum`
-        cmd=$phpbin" workerServer.php -d -m "$threadNum
+        memory=`availableMemory`
+        cmd=$phpbin" workerServer.php -d -m "$memory
         if [ ! -f "$cronolog" ]; then
             $cmd > $logPath$logFileName 2>&1
         else
@@ -179,7 +179,7 @@ reload() {
 
     if [ -f "$pidPath" ]; then
         pid=`cat $pidPath`
-        echo "reload task worker"
+        echo "reload task worker..."
 
         check_worker_exist
         pidIsExits=$?
@@ -188,7 +188,6 @@ reload() {
             kill -10 $pid
         else
             echo "worker server not exist."
-            rm -f $pidPath
         fi
     else
         echo "worker server not exist."
@@ -236,19 +235,20 @@ check_mystop_exist() {
 }
 
 #检测系统剩余内存资源
-availableThreadNum() {
-	availableMemory=`cat /proc/meminfo|awk '/MemFree/{print $2}'|xargs -I [] awk "BEGIN{print []/1024}"`
-	availableMemory="${availableMemory%%.*}"
-	t=`expr $availableMemory - 300`
+availableMemory() {
+	memory=`cat /proc/meminfo|awk '/MemFree/{print $2}'|xargs -I [] awk "BEGIN{print []/1024}"`
+	memory="${memory%%.*}"
 
-	if [ $t -gt 0 ];then
-	   t=`awk "BEGIN{print $t/32}"`
-	   t="${t%%.*}"
-	else
-	   t=0
-	fi
+	#t=`expr $memory - 300`
+	#if [ $t -gt 0 ];then
+	#   t=`awk "BEGIN{print $t/32}"`
+	#   t="${t%%.*}"
+	#else
+	#   t=0
+	#fi
+	#echo "${memory}_${t}"
 
-	echo "${availableMemory}_${t}"
+	echo "${memory}"
 }
 
 

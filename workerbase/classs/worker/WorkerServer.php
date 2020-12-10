@@ -122,10 +122,14 @@ class WorkerServer
         //获取系统当前剩余资源
         $options = getopt('m:');
         if (isset($options['m']) && !empty($options['m'])) {
-            list($memory,$ableThreadNum) = explode('_', $options['m']);
+            $sonMemory = 32;
+            if (isset($this->_conf['jobHotReload']) && $this->_conf['jobHotReload']) {
+                $sonMemory = 64;
+            }
             $this->_systemResource = [
-                'memory' => $memory,
-                'resourceThreadNum' => $ableThreadNum
+                'memory' => $options['m'],
+                //预留300M内存，再进行计算
+                'resourceThreadNum' => floor(max(0, $options['m'] - 300) / $sonMemory)
             ];
         }
 
@@ -172,8 +176,12 @@ class WorkerServer
         if (isset($this->_conf['workerConf'])) {
             $queueNum = count($this->_conf['workerConf']);
 
+            $sonMemory = 32;
+            if (isset($this->_conf['jobHotReload']) && $this->_conf['jobHotReload']) {
+                $sonMemory = 64;
+            }
             //计算最少需要的内存资源
-            $needMemory = $queueNum*32;
+            $needMemory = $queueNum * $sonMemory;
             if (in_array(WK_ENV, ['dev', 'test'])) {
                 $needMemory = $queueNum;
             }
@@ -306,7 +314,7 @@ class WorkerServer
                     if (in_array(WK_ENV, ['dev', 'local_debug'])) {
                         $this->_log("start worker, jobName={$jobName}, pid={$worker->pid}");
                     }
-                    if (isset($this->_conf['jobReload']) && $this->_conf['jobReload']) {
+                    if (isset($this->_conf['jobHotReload']) && $this->_conf['jobHotReload']) {
                         //外面命令执行，热重载
                         $worker->exec(
                             Config::read("phpbin"),
@@ -376,48 +384,17 @@ class WorkerServer
                 if (!$this->_masterProcessExit) {
                     $this->_masterProcessExit = time();
                 }
+
+                $this->_exitWorkerServer();
                 //注册定时器，每秒检查子进程退出情况
                 $this->_monitorTimerId = Timer::tick(1000, function () {
-                    if (!empty($this->_pidMapToWorkerType)) {
-                        $runningTime = time() - $this->_masterProcessExit;
-                        foreach (array_keys($this->_pidMapToWorkerType) as $pid) {
-                            try{
-                                if ($runningTime > 1200) { //超过20分钟
-                                    Log::error("exit the timeout,pid:".$pid." force exit worker.");
-                                    //超过生存时间20分钟，强制退出
-                                    Process::kill($pid, SIGKILL);
-                                }
-                                else {
-                                    //发送一个退出信号
-                                    Process::kill($pid, SIGTERM);
-                                }
-                                //检查子进程心跳
-                                if (!Process::kill($pid, SIG_DFL)) {
-                                    if ($this->_delWorkerByPid($pid)) {
-                                        $this->_log("回收进程资源2, pid={$pid}");
-                                    }
-                                }
-                            } catch (\Exception $e) {
-                                //nothing to do
-                                Log::error($e->getMessage());
-                            }
-                        }
-                    } elseif ($this->_getTotalWorkers() == 0) {
-                        if ($this->_monitorTimerId) {
-                            Timer::clear($this->_monitorTimerId);
-                            $this->_monitorTimerId = null;
-                        }
-                        $this->_log("worker server shutdown...");
-                        //当子进程都退出后，结束masker进程
-                        @unlink($this->_conf['pid']);
-                        exit(0);
-                    }
+                    $this->_exitWorkerServer();
                 });
                 break;
             case SIGUSR1:
                 $this->_log("recv reload signal, reload task worker.");
                 //重载配置，重新部署子进程
-                if (isset($this->_conf['jobReload']) && $this->_conf['jobReload']) {
+                if (isset($this->_conf['jobHotReload']) && $this->_conf['jobHotReload']) {
                     $this->_isReload = true;
                 } else {
                     $this->_log("current mode is not supported reload worker");
@@ -659,6 +636,50 @@ class WorkerServer
             }
         }
         if ($this->_getTotalWorkers() == 0) {
+            $this->_log("worker server shutdown...");
+            //当子进程都退出后，结束masker进程
+            @unlink($this->_conf['pid']);
+            exit(0);
+        }
+    }
+
+    /**
+     * 接收退出信号，退出服务
+     */
+    private function _exitWorkerServer()
+    {
+        if (!$this->_masterProcessExit) {
+            return;
+        }
+        if (!empty($this->_pidMapToWorkerType)) {
+            $runningTime = time() - $this->_masterProcessExit;
+            foreach (array_keys($this->_pidMapToWorkerType) as $pid) {
+                try{
+                    if ($runningTime > 10) { //超过20分钟
+                        Log::error("exit the timeout,pid:".$pid." force exit worker.");
+                        //超过生存时间20分钟，强制退出
+                        Process::kill($pid, SIGKILL);
+                    }
+                    else {
+                        //发送一个退出信号
+                        Process::kill($pid, SIGTERM);
+                    }
+                    //检查子进程心跳
+                    if (!Process::kill($pid, SIG_DFL)) {
+                        if ($this->_delWorkerByPid($pid)) {
+                            $this->_log("回收进程资源2, pid={$pid}");
+                        }
+                    }
+                } catch (\Exception $e) {
+                    //nothing to do
+                    Log::error($e->getMessage());
+                }
+            }
+        } elseif ($this->_getTotalWorkers() == 0) {
+            if ($this->_monitorTimerId) {
+                Timer::clear($this->_monitorTimerId);
+                $this->_monitorTimerId = null;
+            }
             $this->_log("worker server shutdown...");
             //当子进程都退出后，结束masker进程
             @unlink($this->_conf['pid']);

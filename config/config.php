@@ -37,7 +37,7 @@ return [
             'persistent' => true,
     ],
 
-    //php命令路径
+    //php命令路径，此项在env中覆盖不生效
     "phpbin" => "/usr/local/php/bin/php",
 
     'log' => [

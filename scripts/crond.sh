@@ -46,7 +46,7 @@ stop() {
             kill $pid
         else
             echo "crond server not exist."
-            rm -f $pidPath
+            #rm -f $pidPath
         fi
 
         waitTime=60
@@ -96,7 +96,7 @@ stop() {
             if [ $hasT -eq 0 ] && [ $TValue -gt 0 ];then
                 ps -eaf |grep "crond.php" | grep -v "grep"| awk '{print $2}'|xargs kill -9
                 isFalse=0
-                rm -f $pidPath
+                #rm -f $pidPath
                 echo "stop crond ok2."
             else
                 echo "stop timeout failed."
