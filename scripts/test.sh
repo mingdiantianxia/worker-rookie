@@ -23,5 +23,5 @@ cd test1
 #grep -E $(date +%Y-%m-%d)'T14:[2-4][0-9].*recv terminate signal, exit worker' ./aikewei/*$(date +%d)_worker_info*
 
 
-for i in `ls|grep -vE "wzk|API_test|VM-|test_|erp|cron18-20|crontab0-2|crontab3-5|crontab6-8"`;do res=`grep -E $(date +%Y-%m-%d)'.*recv terminate signal, exit worker' ./$i/*$(date +%d)_worker_info* 2> /dev/null`;if [ -n "$res" ]; then echo $i;fi;done
+#for i in `ls|grep -vE "wzk|API_test|VM-|test_|erp|cron18-20|crontab0-2|crontab3-5|crontab6-8"`;do res=`grep -E $(date +%Y-%m-%d)'.*recv terminate signal, exit worker' ./$i/*$(date +%d)_worker_info* 2> /dev/null`;if [ -n "$res" ]; then echo $i;fi;done
 

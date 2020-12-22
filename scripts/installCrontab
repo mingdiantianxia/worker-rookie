@@ -12,7 +12,7 @@ defined('STDIN') or define('STDIN', fopen('php://stdin', 'r'));
 //定义项目根目录
 define('WORKER_PROJECT_PATH',  __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR);
 
-require_once WORKER_PROJECT_PATH.'workerbase/Load.php';
+require_once WORKER_PROJECT_PATH . 'workerbase/helper.php';
 
 date_default_timezone_set('PRC');
 //初始化配置参数

@@ -1,14 +1,14 @@
 <?php
 return [
     'env' => 'prod',//环境名 local_debug本地调试，dev开发，test测试，prod正式
-
     //api签名秘钥
     'secret' => '',
-
     //rsa公钥
     'rsa_public_key' => '',
     //rsa秘钥
     'rsa_private_key' => '',
+    // 默认时区
+    'default_timezone'       => 'PRC',
 
     'db'=> [
         'database_type' => 'mysql',

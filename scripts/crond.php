@@ -19,8 +19,8 @@ define('WORKER_PROJECT_PATH', __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_S
 require_once WORKER_PROJECT_PATH . 'workerbase/helper.php';
 require_once WORKER_PROJECT_PATH . 'workerbase/vendor/autoload.php';
 
-date_default_timezone_set('PRC');
 loadc('Loader')->run();
+date_default_timezone_set(Config::read('default_timezone'));
 
 //初始化当前系统环境
 define('WK_ENV',  Config::read('env'));

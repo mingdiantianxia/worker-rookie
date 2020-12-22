@@ -241,20 +241,15 @@ class Macaw {
                   if (!class_exists($filter)) {
                       continue;
                   }
-                  $reflectionClass = new \ReflectionClass($filter);
-                  if (!$reflectionClass->IsInstantiable()) { //是否可实例化
-                      continue;
-                  }
-                  if (!$reflectionClass->hasMethod('init')) { //方法是否存在
-                      continue;
-                  }
-
-                  if (!$reflectionClass->hasMethod('preFilter')) { //方法是否存在
-                      continue;
-                  }
-
-                  unset($reflectionClass);
                   $instance = new $filter;
+                  if (!method_exists($instance,'init')) {
+                      unset($instance);
+                      continue;
+                  }
+                  if (!method_exists($instance,'preFilter')) {
+                      unset($instance);
+                      continue;
+                  }
                   $instance->init();
                   $res = $instance->preFilter($matched);
                   unset($instance);
